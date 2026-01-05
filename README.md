@@ -10,7 +10,7 @@ Design a Python Pygame titled "Paranormal Investigations" where the player exper
 
 2. **Camera Controls**: Implement mouse movement to control the camera direction. The camera should smoothly follow the mouse movement to create an immersive experience. 
 
-3. **Room Navigation**: Create multiple rooms in the house. The player can move their mouse to the edges of the screen to transition into adjacent rooms. Clicking on the edge should trigger the room change. There should be a attic and a basement as well.
+3. **Room Navigation**: Create multiple rooms in the house. The player can move their mouse to the edges of the screen to transition into adjacent rooms. Clicking on the edge should trigger the room change. There should be a attic and a basement as well. EVERY room should be very detailed with effort put into it.
 
 4. **Ghost Behaviors**: Each ghost should have distinct actions that make them recognizable. Examples include:
    - **Bonnie**: A blue ghost with a deformed face and three arms, known for flickering lights and making objects float.
