@@ -22,7 +22,6 @@ class InteractiveObject:
         self.state = False  # For toggleable objects
         self.hovered = False
         self.clue_revealed = False
-        self.last_interaction_message = ""
         
     def get_description_for_ghost(self, ghost_name, flashlight_on=False):
         """Get description based on current ghost and flashlight state"""

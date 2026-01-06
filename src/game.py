@@ -810,13 +810,15 @@ class Game:
             for i, text in enumerate(whisper_texts):
                 x = 100 + i * 300 + int(math.sin(progress * 5 + i) * 20)
                 y = 200 + int(math.cos(progress * 3 + i) * 50)
-                text_surf = small_font.render(text, True, (200, 200, 200, alpha // 2))
+                text_surf = small_font.render(text, True, (200, 200, 200))
+                text_surf.set_alpha(alpha // 2)
                 self.screen.blit(text_surf, (x, y))
                 
         elif effect_type in ['mirror_reflection', 'mirror_appearances']:
             # Draw eerie mirror glow
-            pygame.draw.rect(self.screen, (100, 100, 150, alpha // 3), 
-                           (SCREEN_WIDTH // 2 - 50, 150, 100, 150), 3)
+            overlay = pygame.Surface((100, 150), pygame.SRCALPHA)
+            pygame.draw.rect(overlay, (100, 100, 150, alpha // 3), (0, 0, 100, 150), 3)
+            self.screen.blit(overlay, (SCREEN_WIDTH // 2 - 50, 150))
                            
         elif effect_type == 'hallucinations':
             # Screen color shift
