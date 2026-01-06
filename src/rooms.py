@@ -11,15 +11,24 @@ from constants import *
 class InteractiveObject:
     """An object in a room that can be interacted with"""
     
-    def __init__(self, name, rect, description, interaction_type, zoom_description=None):
+    def __init__(self, name, rect, description, interaction_type, zoom_description=None, 
+                 ghost_descriptions=None):
         self.name = name
         self.rect = pygame.Rect(rect)
         self.description = description
         self.interaction_type = interaction_type  # "toggle", "examine", "zoom"
         self.zoom_description = zoom_description
+        self.ghost_descriptions = ghost_descriptions or {}  # {ghost_name: special_description}
         self.state = False  # For toggleable objects
         self.hovered = False
         self.clue_revealed = False
+        self.last_interaction_message = ""
+        
+    def get_description_for_ghost(self, ghost_name, flashlight_on=False):
+        """Get description based on current ghost and flashlight state"""
+        if flashlight_on and ghost_name in self.ghost_descriptions:
+            return self.ghost_descriptions[ghost_name]
+        return self.zoom_description if self.zoom_description else self.description
         
     def draw_highlight(self, surface):
         """Draw highlight when hovered"""
@@ -42,6 +51,8 @@ class Room:
         self.objects = []
         self.ghost_effects = []
         self.ambient_darkness = 0
+        self.lights_on = True  # Room lighting state
+        self.effect_frame = 0  # For stable animations
         self.setup_room()
         
     def setup_room(self):
@@ -51,6 +62,10 @@ class Room:
     def add_object(self, obj):
         """Add an interactive object to the room"""
         self.objects.append(obj)
+    
+    def toggle_lights(self):
+        """Toggle room lights"""
+        self.lights_on = not self.lights_on
         
     def get_object_at(self, pos):
         """Get the interactive object at a position"""
@@ -58,6 +73,10 @@ class Room:
             if obj.rect.collidepoint(pos):
                 return obj
         return None
+    
+    def update(self, dt):
+        """Update room state"""
+        self.effect_frame += 1
     
     def update_hover(self, mouse_pos):
         """Update hover state of objects"""
@@ -212,7 +231,12 @@ class EntranceRoom(Room):
         for i in range(5):
             x = 580 + i * 30
             pygame.draw.line(surface, DARK_GRAY, (640, 60), (x, 100), 2)
-            pygame.draw.circle(surface, YELLOW if random.random() > 0.1 else ORANGE, (x, 110), 8)
+            # Flickering lights when on
+            if self.lights_on:
+                light_color = YELLOW if random.random() > 0.1 else ORANGE
+            else:
+                light_color = DARK_GRAY
+            pygame.draw.circle(surface, light_color, (x, 110), 8)
         
         # Front door
         pygame.draw.rect(surface, (60, 40, 30), (550, 150, 180, 300))
@@ -229,9 +253,10 @@ class EntranceRoom(Room):
         # Welcome mat
         pygame.draw.rect(surface, (100, 80, 60), (580, 460, 120, 40))
         
-        # Light switch
+        # Light switch - show state
         pygame.draw.rect(surface, CREAM, (50, 300, 30, 50))
-        pygame.draw.rect(surface, GRAY, (58, 315, 14, 20))
+        switch_y = 310 if self.lights_on else 325
+        pygame.draw.rect(surface, GRAY, (58, switch_y, 14, 20))
 
 
 class LivingRoom(Room):
@@ -471,17 +496,20 @@ class DiningRoom(Room):
         pygame.draw.rect(surface, (80, 50, 30), (50, 150, 150, 300))
         pygame.draw.rect(surface, (100, 120, 140), (60, 160, 130, 140))
         pygame.draw.rect(surface, (80, 50, 30), (60, 310, 130, 130))
-        # China pieces
-        for y in [180, 220, 260]:
-            for x in [80, 120, 160]:
-                if random.random() > 0.2:
-                    pygame.draw.circle(surface, WHITE, (x, y), 12)
+        # China pieces - some broken (fixed positions)
+        china_positions = [(80, 180), (120, 180), (160, 180), (80, 220), (160, 220), (80, 260), (120, 260), (160, 260)]
+        for x, y in china_positions:
+            pygame.draw.circle(surface, WHITE, (x, y), 12)
         
-        # Candelabra
+        # Candelabra with flickering candles
         pygame.draw.rect(surface, (180, 180, 190), (600, 320, 20, 60))
         for i in range(3):
             pygame.draw.rect(surface, (180, 180, 190), (580 + i * 20, 300, 10, 30))
-            pygame.draw.circle(surface, YELLOW, (585 + i * 20, 295), 6)
+            if self.lights_on:
+                candle_color = YELLOW if random.random() > 0.15 else ORANGE
+            else:
+                candle_color = DARK_GRAY
+            pygame.draw.circle(surface, candle_color, (585 + i * 20, 295), 6)
         
         # Wine rack
         pygame.draw.rect(surface, DARK_BROWN, (1050, 200, 100, 200))
@@ -550,8 +578,11 @@ class HallwayRoom(Room):
         
         # Light fixture
         pygame.draw.rect(surface, (60, 60, 70), (655, 50, 10, 30))
-        pygame.draw.circle(surface, (255, 250, 200) if random.random() > 0.1 else (200, 180, 100),
-                          (660, 90), 20)
+        if self.lights_on:
+            light_color = (255, 250, 200) if random.random() > 0.1 else (200, 180, 100)
+        else:
+            light_color = (100, 90, 50)
+        pygame.draw.circle(surface, light_color, (660, 90), 20)
         
         # Rug
         pygame.draw.rect(surface, (100, 60, 60), (400, 480, 400, 100))
@@ -785,21 +816,21 @@ class StudyRoom(Room):
         pygame.draw.rect(surface, (90, 60, 40), (400, 320, 350, 20))
         pygame.draw.rect(surface, (80, 50, 35), (410, 340, 100, 130))
         pygame.draw.rect(surface, (80, 50, 35), (640, 340, 100, 130))
-        # Papers
-        for _ in range(5):
-            x = random.randint(420, 700)
+        # Papers - fixed positions
+        paper_positions = [430, 480, 530, 580, 670]
+        for x in paper_positions:
             pygame.draw.rect(surface, CREAM, (x, 300, 40, 30))
         # Ink pot
         pygame.draw.rect(surface, (20, 20, 30), (650, 305, 20, 20))
         
         # Bookshelf
         pygame.draw.rect(surface, (70, 45, 30), (50, 120, 250, 350))
+        book_colors = [(100, 50, 50), (50, 100, 50), (50, 50, 100), (100, 80, 50), (80, 50, 80)]
         for row in range(5):
             y = 140 + row * 65
             pygame.draw.rect(surface, (60, 40, 25), (55, y, 240, 5))
             for col in range(10):
-                color = random.choice([(100, 50, 50), (50, 100, 50), (50, 50, 100),
-                                       (100, 80, 50), (80, 50, 80)])
+                color = book_colors[(row + col) % len(book_colors)]
                 pygame.draw.rect(surface, color, (60 + col * 23, y + 5, 20, 55))
         
         # Globe
@@ -916,9 +947,12 @@ class AtticRoom(Room):
         pygame.draw.rect(surface, (30, 35, 50), (1060, 110, 130, 130))
         pygame.draw.line(surface, (40, 45, 55), (1125, 110), (1125, 240), 3)
         
-        # Dust particles effect (just some dots)
-        for _ in range(20):
-            x, y = random.randint(0, SCREEN_WIDTH), random.randint(100, SCREEN_HEIGHT)
+        # Dust particles effect - fixed positions
+        dust_positions = [(100, 150), (300, 200), (500, 180), (700, 250), (900, 170),
+                         (200, 350), (400, 400), (600, 320), (800, 380), (1000, 300),
+                         (150, 500), (350, 450), (550, 520), (750, 480), (950, 440),
+                         (250, 600), (450, 550), (650, 580), (850, 620), (1050, 560)]
+        for x, y in dust_positions:
             pygame.draw.circle(surface, (200, 190, 170), (x, y), 1)
 
 
@@ -982,7 +1016,8 @@ class BasementRoom(Room):
         pygame.draw.rect(surface, (50, 50, 55), (100, 200, 200, 280))
         pygame.draw.rect(surface, (40, 40, 45), (120, 300, 80, 100))  # Door
         pygame.draw.circle(surface, (30, 30, 35), (160, 350), 30)  # Porthole
-        if random.random() > 0.7:
+        # Furnace glow based on effect frame for smooth animation
+        if (self.effect_frame // 30) % 3 == 0:
             pygame.draw.circle(surface, (200, 100, 50), (160, 350), 25)  # Glow
         pygame.draw.rect(surface, (60, 60, 65), (180, 200, 100, 30))  # Pipe
         
@@ -1021,15 +1056,19 @@ class BasementRoom(Room):
         for y in [60, 90]:
             pygame.draw.rect(surface, (80, 80, 85), (0, y, SCREEN_WIDTH, 15))
         
-        # Water drips
-        for _ in range(3):
-            x = random.randint(100, 1100)
-            pygame.draw.line(surface, (100, 120, 150), (x, 100), (x, 100 + random.randint(5, 15)), 2)
+        # Water drips - fixed positions
+        drip_positions = [200, 600, 1000]
+        for x in drip_positions:
+            drip_length = 8 + (self.effect_frame // 10) % 8
+            pygame.draw.line(surface, (100, 120, 150), (x, 100), (x, 100 + drip_length), 2)
         
-        # Light bulb
+        # Light bulb with flickering
         pygame.draw.line(surface, (60, 60, 60), (640, 0), (640, 80), 2)
-        pygame.draw.circle(surface, (200, 180, 100) if random.random() > 0.2 else (100, 90, 50),
-                          (640, 90), 15)
+        if self.lights_on:
+            light_color = (200, 180, 100) if random.random() > 0.2 else (100, 90, 50)
+        else:
+            light_color = (100, 90, 50)
+        pygame.draw.circle(surface, light_color, (640, 90), 15)
 
 
 def create_all_rooms():

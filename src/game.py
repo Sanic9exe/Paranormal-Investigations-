@@ -5,9 +5,8 @@ Main game class for Paranormal Investigations
 import pygame
 import random
 import math
-import time
 from constants import *
-from ghosts import get_random_ghost, get_all_ghosts, Ghost
+from ghosts import get_random_ghost, get_all_ghosts, Ghost, BEHAVIOR_EVIDENCE_MAP
 from rooms import create_all_rooms
 from ui import Button, Notebook, GhostBook, IdentifyMenu, ZoomView
 
@@ -56,21 +55,32 @@ class Game:
         self.pause_buttons = []
         self.create_menu_buttons()
         
-        # Game mechanics
+        # Game mechanics - use pygame ticks instead of time.time()
         self.flashlight_on = False
         self.mouse_pos = (0, 0)
-        self.game_start_time = 0
+        self.game_start_ticks = 0
         self.ghost_arrived = False
-        self.ghost_arrival_time = 0
-        self.grace_period = 0
+        self.ghost_arrival_ticks = 0
+        self.grace_period = 0  # in seconds
         self.guesses_remaining = 2
         self.aggression = 0
         self.time_limit = 0
-        self.last_behavior_time = 0
+        self.last_behavior_ticks = 0
         self.active_effects = []
         self.blind_effect = 0
         self.jumpscare_ghost = None
         self.jumpscare_timer = 0
+        
+        # Evidence collection system
+        self.collected_evidence = set()
+        self.behavior_log = []  # Log of observed behaviors with timestamps
+        self.wrong_guess_ghost = None  # For showing which ghost was wrong
+        self.wrong_guess_timer = 0
+        self.interaction_message = ""
+        self.interaction_message_timer = 0
+        
+        # Visual effect state (calculated once per frame)
+        self.frame_flash_state = False
         
         # Lightning effect
         self.lightning_active = False
@@ -163,20 +173,31 @@ class Game:
         self.identify_menu = IdentifyMenu(screen_rect, self.all_ghosts, self.fonts['medium'])
         self.zoom_view = ZoomView(screen_rect)
         
-        # Set up game mechanics
+        # Set up game mechanics - shorter times for better gameplay
         self.guesses_remaining = settings['guesses']
         self.grace_period = random.randint(*settings['grace_period'])
-        self.time_limit = self.haunting_ghost.time_limit * settings['time_multiplier']
+        # Cap time limit to 3-5 minutes for better pacing
+        base_time = min(300, self.haunting_ghost.time_limit // 3)
+        self.time_limit = base_time * settings['time_multiplier']
         self.aggression = self.haunting_ghost.base_aggression
         
-        self.game_start_time = time.time()
+        # Use pygame ticks
+        self.game_start_ticks = pygame.time.get_ticks()
         self.ghost_arrived = False
-        self.ghost_arrival_time = 0
-        self.last_behavior_time = 0
+        self.ghost_arrival_ticks = 0
+        self.last_behavior_ticks = 0
         self.active_effects = []
         self.blind_effect = 0
         self.flashlight_on = False
         self.lightning_active = False
+        
+        # Reset evidence collection
+        self.collected_evidence = set()
+        self.behavior_log = []
+        self.wrong_guess_ghost = None
+        self.wrong_guess_timer = 0
+        self.interaction_message = ""
+        self.interaction_message_timer = 0
         
         self.state = STATE_PLAYING
         
@@ -317,15 +338,59 @@ class Game:
             
         obj = self.current_room.get_object_at(pos)
         if obj:
+            # Get ghost-specific description if flashlight is on
+            description = obj.get_description_for_ghost(
+                self.haunting_ghost.name if self.haunting_ghost else "", 
+                self.flashlight_on
+            )
+            
             if obj.interaction_type == "toggle":
                 obj.state = not obj.state
+                # Special handling for light switch
+                if "Light" in obj.name or "Switch" in obj.name:
+                    self.current_room.toggle_lights()
+                    state_text = "on" if self.current_room.lights_on else "off"
+                    self.show_interaction_message(f"Lights turned {state_text}")
+                else:
+                    self.show_interaction_message(f"{obj.name}: {description}")
                 self.notebook.add_note(f"Toggled {obj.name}")
+                
             elif obj.interaction_type == "examine":
-                self.notebook.add_note(f"Examined {obj.name}")
+                self.show_interaction_message(description)
+                self.notebook.add_note(f"Examined {obj.name}: {description[:40]}...")
+                
+                # Check if this reveals ghost-specific clues
+                if self.flashlight_on and self.ghost_arrived:
+                    self.check_for_evidence(obj)
+                
             elif obj.interaction_type == "zoom":
-                self.zoom_view.set_object(obj)
+                self.zoom_view.set_object(obj, self.haunting_ghost, self.flashlight_on)
                 self.state = STATE_ZOOM
                 self.notebook.add_note(f"Zoomed in on {obj.name}")
+                
+                # Check for evidence when zooming
+                if self.flashlight_on and self.ghost_arrived:
+                    self.check_for_evidence(obj)
+    
+    def show_interaction_message(self, message):
+        """Show a message to the player"""
+        self.interaction_message = message
+        self.interaction_message_timer = 3.0
+        
+    def check_for_evidence(self, obj):
+        """Check if interacting with an object reveals evidence about the ghost"""
+        if not self.haunting_ghost:
+            return
+        
+        # Randomly reveal evidence based on current ghost
+        if random.random() < 0.3:  # 30% chance to reveal evidence
+            behavior = self.haunting_ghost.get_random_behavior()
+            evidence_type = BEHAVIOR_EVIDENCE_MAP.get(behavior)
+            if evidence_type and evidence_type not in self.collected_evidence:
+                self.collected_evidence.add(evidence_type)
+                evidence_name = evidence_type.replace("_", " ").title()
+                self.notebook.add_note(f"EVIDENCE: {evidence_name} detected!")
+                self.show_interaction_message(f"Evidence collected: {evidence_name}!")
                 
     def handle_scroll(self, amount):
         """Handle scroll wheel"""
@@ -392,18 +457,24 @@ class Game:
             self.guesses_remaining -= 1
             self.aggression += 0.2
             self.blind_effect = 2.0  # 2 seconds of blind effect
+            self.wrong_guess_ghost = selected_ghost
+            self.wrong_guess_timer = 3.0
             
             if self.guesses_remaining <= 0:
                 # Game over - jumpscare
                 self.jumpscare_ghost = self.haunting_ghost
-                self.jumpscare_timer = 3.0
+                self.jumpscare_timer = JUMPSCARE_DURATION
                 self.state = STATE_JUMPSCARE
             else:
                 self.state = STATE_PLAYING
                 self.camera_shake = 0.5
+                self.show_interaction_message(f"Wrong! It wasn't {selected_ghost.name}!")
                 
     def update(self, dt):
         """Update game state"""
+        # Calculate flash state once per frame
+        self.frame_flash_state = random.random() < JUMPSCARE_FLASH_PROBABILITY
+        
         if self.state == STATE_PLAYING:
             self.update_gameplay(dt)
         elif self.state == STATE_JUMPSCARE:
@@ -425,17 +496,30 @@ class Game:
         if self.blind_effect > 0:
             self.blind_effect -= dt
             
+        # Update wrong guess timer
+        if self.wrong_guess_timer > 0:
+            self.wrong_guess_timer -= dt
+            
+        # Update interaction message timer
+        if self.interaction_message_timer > 0:
+            self.interaction_message_timer -= dt
+            
     def update_gameplay(self, dt):
         """Update gameplay mechanics"""
-        current_time = time.time()
-        elapsed = current_time - self.game_start_time
+        current_ticks = pygame.time.get_ticks()
+        elapsed_seconds = (current_ticks - self.game_start_ticks) / 1000.0
+        
+        # Update current room
+        if self.current_room:
+            self.current_room.update(dt)
         
         # Check for ghost arrival
-        if not self.ghost_arrived and elapsed >= self.grace_period:
+        if not self.ghost_arrived and elapsed_seconds >= self.grace_period:
             self.ghost_arrived = True
-            self.ghost_arrival_time = current_time
+            self.ghost_arrival_ticks = current_ticks
             self.lightning_active = True
             self.lightning_timer = 0.5
+            self.notebook.add_note("The ghost has arrived! Be careful...")
             
         # Update lightning
         if self.lightning_active:
@@ -445,36 +529,58 @@ class Game:
                 
         # Ghost behaviors
         if self.ghost_arrived:
-            time_since_arrival = current_time - self.ghost_arrival_time
+            time_since_arrival = (current_ticks - self.ghost_arrival_ticks) / 1000.0
             
             # Increase aggression over time
             settings = DIFFICULTY_SETTINGS[self.difficulty]
             self.aggression = min(1.0, self.haunting_ghost.base_aggression + 
                                  (time_since_arrival / self.time_limit) * settings['aggression_rate'])
             
-            # Trigger behaviors
-            behavior_interval = max(5, 30 - self.aggression * 25)
-            if current_time - self.last_behavior_time > behavior_interval:
+            # Trigger behaviors - use constants
+            behavior_interval = max(BEHAVIOR_MIN_INTERVAL, 
+                                   BEHAVIOR_MAX_INTERVAL - self.aggression * BEHAVIOR_AGGRESSION_FACTOR)
+            time_since_behavior = (current_ticks - self.last_behavior_ticks) / 1000.0
+            if time_since_behavior > behavior_interval:
                 self.trigger_ghost_behavior()
-                self.last_behavior_time = current_time
+                self.last_behavior_ticks = current_ticks
                 
             # Check for time limit
             if time_since_arrival >= self.time_limit:
                 self.jumpscare_ghost = self.haunting_ghost
-                self.jumpscare_timer = 3.0
+                self.jumpscare_timer = JUMPSCARE_DURATION
                 self.state = STATE_JUMPSCARE
                 
     def trigger_ghost_behavior(self):
         """Trigger a random ghost behavior"""
         behavior = self.haunting_ghost.get_random_behavior()
+        
+        # Limit active effects to prevent memory issues
+        if len(self.active_effects) >= MAX_ACTIVE_EFFECTS:
+            self.active_effects.pop(0)
+        
+        current_ticks = pygame.time.get_ticks()
         self.active_effects.append({
             'type': behavior,
-            'start_time': time.time(),
-            'duration': random.uniform(2, 5)
+            'start_ticks': current_ticks,
+            'duration': random.uniform(BEHAVIOR_MIN_DURATION, BEHAVIOR_MAX_DURATION)
         })
         
+        # Log the behavior for evidence
+        evidence_type = BEHAVIOR_EVIDENCE_MAP.get(behavior)
+        if evidence_type:
+            self.behavior_log.append({
+                'behavior': behavior,
+                'evidence': evidence_type,
+                'ticks': current_ticks
+            })
+            # Auto-collect evidence when behavior happens
+            if evidence_type not in self.collected_evidence:
+                self.collected_evidence.add(evidence_type)
+                evidence_name = evidence_type.replace("_", " ").title()
+                self.notebook.add_note(f"Detected: {behavior.replace('_', ' ').title()}")
+        
         # Some behaviors cause camera shake
-        if behavior in ['slam_doors', 'throw_objects', 'violent_door_slams']:
+        if behavior in ['slam_doors', 'throw_objects', 'violent_door_slams', 'move_furniture']:
             self.camera_shake = 0.3
             
     def draw(self):
@@ -632,11 +738,11 @@ class Game:
             
     def draw_ghost_effects(self):
         """Draw active ghost effects"""
-        current_time = time.time()
+        current_ticks = pygame.time.get_ticks()
         remaining_effects = []
         
         for effect in self.active_effects:
-            elapsed = current_time - effect['start_time']
+            elapsed = (current_ticks - effect['start_ticks']) / 1000.0
             if elapsed < effect['duration']:
                 remaining_effects.append(effect)
                 self.draw_effect(effect['type'], elapsed / effect['duration'])
@@ -648,19 +754,78 @@ class Game:
         alpha = int(255 * (1 - progress))
         
         if effect_type in ['flicker_lights', 'darken_room']:
+            # Darken the room
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, min(200, alpha)))
             self.screen.blit(overlay, (0, 0))
             
         elif effect_type in ['cold_spots', 'cold_breath']:
-            # Blue tint
+            # Blue tint for cold
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
             overlay.fill((100, 150, 255, min(100, alpha // 2)))
             self.screen.blit(overlay, (0, 0))
+            # Draw cold breath effect near bottom
+            for i in range(5):
+                x = SCREEN_WIDTH // 2 + int(math.sin(progress * 10 + i) * 100)
+                y = SCREEN_HEIGHT - 100 + int(math.cos(progress * 5 + i) * 30)
+                pygame.draw.circle(self.screen, (200, 220, 255, alpha // 3), (x, y), 20 - i * 3)
             
         elif effect_type == 'visual_distortion':
-            # Wavy effect would go here
-            pass
+            # Wavy distortion effect - draw colored lines
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            for i in range(0, SCREEN_HEIGHT, 20):
+                offset = int(math.sin(progress * 20 + i * 0.1) * 10)
+                pygame.draw.line(overlay, (128, 0, 128, alpha // 4), 
+                               (0, i), (SCREEN_WIDTH, i + offset), 2)
+            self.screen.blit(overlay, (0, 0))
+            
+        elif effect_type in ['shadow_movement', 'following_presence', 'grabbing_shadows']:
+            # Draw moving shadows
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            shadow_x = int(SCREEN_WIDTH * 0.2 + progress * SCREEN_WIDTH * 0.6)
+            shadow_y = SCREEN_HEIGHT // 2
+            pygame.draw.ellipse(overlay, (0, 0, 0, min(150, alpha)), 
+                              (shadow_x - 50, shadow_y - 100, 100, 200))
+            self.screen.blit(overlay, (0, 0))
+            
+        elif effect_type in ['float_objects', 'throw_objects', 'flying_books']:
+            # Draw floating object effect
+            for i in range(3):
+                x = SCREEN_WIDTH // 4 + i * SCREEN_WIDTH // 4
+                y = SCREEN_HEIGHT // 2 + int(math.sin(progress * 10 + i * 2) * 50)
+                pygame.draw.rect(self.screen, (100, 80, 60), (x - 15, y - 10, 30, 20))
+            
+        elif effect_type in ['wet_footprints', 'bloody_footprints']:
+            # Draw footprints on floor
+            color = (100, 120, 150) if effect_type == 'wet_footprints' else (100, 30, 30)
+            for i in range(5):
+                x = 200 + i * 150
+                y = SCREEN_HEIGHT - 100 + (i % 2) * 30
+                pygame.draw.ellipse(self.screen, color, (x, y, 30, 50))
+                
+        elif effect_type in ['whispers', 'sad_whispers', 'whispered_names', 'shushing_sounds']:
+            # Draw whisper visual effect
+            small_font = pygame.font.Font(None, 20)
+            whisper_texts = ["...", "shhh...", "listen...", "help..."]
+            for i, text in enumerate(whisper_texts):
+                x = 100 + i * 300 + int(math.sin(progress * 5 + i) * 20)
+                y = 200 + int(math.cos(progress * 3 + i) * 50)
+                text_surf = small_font.render(text, True, (200, 200, 200, alpha // 2))
+                self.screen.blit(text_surf, (x, y))
+                
+        elif effect_type in ['mirror_reflection', 'mirror_appearances']:
+            # Draw eerie mirror glow
+            pygame.draw.rect(self.screen, (100, 100, 150, alpha // 3), 
+                           (SCREEN_WIDTH // 2 - 50, 150, 100, 150), 3)
+                           
+        elif effect_type == 'hallucinations':
+            # Screen color shift
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            r = int(128 + math.sin(progress * 20) * 50)
+            g = int(128 + math.sin(progress * 15) * 50)
+            b = int(128 + math.sin(progress * 10) * 50)
+            overlay.fill((r, g, b, alpha // 4))
+            self.screen.blit(overlay, (0, 0))
             
     def draw_flashlight(self):
         """Draw flashlight effect"""
@@ -693,11 +858,14 @@ class Game:
         
     def draw_hud(self):
         """Draw heads-up display"""
+        current_ticks = pygame.time.get_ticks()
+        
         # Time remaining (if ghost has arrived)
         if self.ghost_arrived:
-            time_remaining = self.time_limit - (time.time() - self.ghost_arrival_time)
-            minutes = int(time_remaining // 60)
-            seconds = int(time_remaining % 60)
+            time_since_arrival = (current_ticks - self.ghost_arrival_ticks) / 1000.0
+            time_remaining = self.time_limit - time_since_arrival
+            minutes = max(0, int(time_remaining // 60))
+            seconds = max(0, int(time_remaining % 60))
             time_text = f"Time: {minutes:02d}:{seconds:02d}"
             time_color = RED if time_remaining < 60 else YELLOW if time_remaining < 180 else WHITE
             time_surf = self.fonts['medium'].render(time_text, True, time_color)
@@ -714,10 +882,11 @@ class Game:
                            (bar_rect.x, bar_rect.y, fill_width, bar_rect.height))
         else:
             # Grace period countdown
-            remaining = self.grace_period - (time.time() - self.game_start_time)
+            elapsed = (current_ticks - self.game_start_ticks) / 1000.0
+            remaining = self.grace_period - elapsed
             if remaining > 0:
-                wait_text = self.fonts['small'].render("Investigating...", True, GRAY)
-                self.screen.blit(wait_text, (SCREEN_WIDTH - 150, 10))
+                wait_text = self.fonts['small'].render(f"Investigating... {int(remaining)}s", True, GRAY)
+                self.screen.blit(wait_text, (SCREEN_WIDTH - 180, 10))
                 
         # Guesses remaining
         guesses_text = self.fonts['medium'].render(f"Guesses: {self.guesses_remaining}", True,
@@ -729,6 +898,37 @@ class Game:
         fl_color = YELLOW if self.flashlight_on else GRAY
         fl_surf = self.fonts['small'].render(fl_text, True, fl_color)
         self.screen.blit(fl_surf, (10, 40))
+        
+        # Evidence collected
+        if self.collected_evidence:
+            evidence_y = 65
+            ev_title = self.fonts['small'].render("Evidence:", True, GREEN)
+            self.screen.blit(ev_title, (10, evidence_y))
+            evidence_y += 18
+            for evidence in list(self.collected_evidence)[:4]:  # Show max 4
+                ev_name = evidence.replace("_", " ").replace("evidence", "").strip().title()
+                ev_text = self.fonts['small'].render(f"• {ev_name}", True, (150, 255, 150))
+                self.screen.blit(ev_text, (15, evidence_y))
+                evidence_y += 16
+        
+        # Interaction message
+        if self.interaction_message_timer > 0 and self.interaction_message:
+            msg_alpha = min(255, int(self.interaction_message_timer * 128))
+            msg_surf = self.fonts['medium'].render(self.interaction_message, True, WHITE)
+            msg_rect = msg_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80))
+            # Background
+            bg_rect = msg_rect.inflate(20, 10)
+            bg_surf = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+            bg_surf.fill((0, 0, 0, min(200, msg_alpha)))
+            self.screen.blit(bg_surf, bg_rect)
+            self.screen.blit(msg_surf, msg_rect)
+        
+        # Wrong guess message
+        if self.wrong_guess_timer > 0 and self.wrong_guess_ghost:
+            wrong_text = f"Wrong! It's not {self.wrong_guess_ghost.name}!"
+            wrong_surf = self.fonts['large'].render(wrong_text, True, RED)
+            wrong_rect = wrong_surf.get_rect(center=(SCREEN_WIDTH // 2, 120))
+            self.screen.blit(wrong_surf, wrong_rect)
         
         # Controls hint
         controls = "N: Notes | G: Ghost Book | I: Identify | F: Flashlight | ESC: Pause"
@@ -795,8 +995,8 @@ class Game:
             center_x = SCREEN_WIDTH // 2
             center_y = SCREEN_HEIGHT // 2
             
-            # Flash effect
-            if random.random() < JUMPSCARE_FLASH_PROBABILITY:
+            # Flash effect - use pre-calculated state
+            if self.frame_flash_state:
                 self.screen.fill(self.jumpscare_ghost.color)
                 
             # Big scary ghost representation

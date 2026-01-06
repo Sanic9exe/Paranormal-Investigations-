@@ -6,6 +6,68 @@ import random
 import math
 from constants import *
 
+
+# Map behaviors to evidence types
+BEHAVIOR_EVIDENCE_MAP = {
+    # Cold evidence
+    "cold_spots": EVIDENCE_COLD,
+    "cold_breath": EVIDENCE_COLD,
+    # Light evidence
+    "flicker_lights": EVIDENCE_LIGHTS,
+    "darken_room": EVIDENCE_LIGHTS,
+    # Object evidence
+    "float_objects": EVIDENCE_OBJECTS,
+    "throw_objects": EVIDENCE_OBJECTS,
+    "move_furniture": EVIDENCE_OBJECTS,
+    "slam_doors": EVIDENCE_OBJECTS,
+    "scatter_items": EVIDENCE_OBJECTS,
+    "toy_movement": EVIDENCE_OBJECTS,
+    "flying_books": EVIDENCE_OBJECTS,
+    "object_disappearing": EVIDENCE_OBJECTS,
+    "strange_arrangements": EVIDENCE_OBJECTS,
+    # Sound evidence
+    "whispers": EVIDENCE_SOUNDS,
+    "crying_sounds": EVIDENCE_SOUNDS,
+    "sad_whispers": EVIDENCE_SOUNDS,
+    "breathing_sounds": EVIDENCE_SOUNDS,
+    "childish_laughter": EVIDENCE_SOUNDS,
+    "knife_sounds": EVIDENCE_SOUNDS,
+    "music_box_playing": EVIDENCE_SOUNDS,
+    "dress_rustling": EVIDENCE_SOUNDS,
+    "phantom_crying": EVIDENCE_SOUNDS,
+    "page_turning": EVIDENCE_SOUNDS,
+    "shushing_sounds": EVIDENCE_SOUNDS,
+    "whispered_names": EVIDENCE_SOUNDS,
+    "counting_sounds": EVIDENCE_SOUNDS,
+    "coin_sounds": EVIDENCE_SOUNDS,
+    "knock_on_walls": EVIDENCE_SOUNDS,
+    "violent_door_slams": EVIDENCE_SOUNDS,
+    # Visual evidence
+    "mirror_reflection": EVIDENCE_VISUAL,
+    "shadow_movement": EVIDENCE_VISUAL,
+    "following_presence": EVIDENCE_VISUAL,
+    "sudden_appearance": EVIDENCE_VISUAL,
+    "handprints": EVIDENCE_VISUAL,
+    "drawing_on_walls": EVIDENCE_VISUAL,
+    "hide_and_seek": EVIDENCE_VISUAL,
+    "bloody_footprints": EVIDENCE_VISUAL,
+    "threatening_shadows": EVIDENCE_VISUAL,
+    "mirror_appearances": EVIDENCE_VISUAL,
+    "rose_petals": EVIDENCE_VISUAL,
+    "glasses_reflection": EVIDENCE_VISUAL,
+    "writing_appears": EVIDENCE_VISUAL,
+    "visual_distortion": EVIDENCE_VISUAL,
+    "hallucinations": EVIDENCE_VISUAL,
+    "reality_blur": EVIDENCE_VISUAL,
+    "multiple_eyes": EVIDENCE_VISUAL,
+    "grabbing_shadows": EVIDENCE_VISUAL,
+    # Water evidence
+    "wet_footprints": EVIDENCE_WATER,
+    "water_dripping": EVIDENCE_WATER,
+    "meat_smell": EVIDENCE_VISUAL,  # Special case
+}
+
+
 class Ghost:
     """Base class for all ghosts"""
     
@@ -21,10 +83,24 @@ class Ghost:
         self.sketch_data = sketch_data  # Data for drawing the ghost sketch
         self.current_aggression = base_aggression
         self.active_behaviors = []
+        # Calculate evidence signature for this ghost
+        self.evidence_types = self._calculate_evidence_types()
+        
+    def _calculate_evidence_types(self):
+        """Get unique evidence types this ghost produces"""
+        evidence = set()
+        for behavior in self.behaviors:
+            if behavior in BEHAVIOR_EVIDENCE_MAP:
+                evidence.add(BEHAVIOR_EVIDENCE_MAP[behavior])
+        return evidence
         
     def get_random_behavior(self):
         """Get a random behavior from this ghost's behavior list"""
         return random.choice(self.behaviors)
+    
+    def get_evidence_for_behavior(self, behavior):
+        """Get the evidence type for a specific behavior"""
+        return BEHAVIOR_EVIDENCE_MAP.get(behavior, None)
     
     def increase_aggression(self, amount):
         """Increase ghost aggression"""

@@ -24,6 +24,8 @@ BROWN = (139, 69, 19)
 DARK_BROWN = (101, 67, 33)
 CREAM = (255, 253, 208)
 SEPIA = (112, 66, 20)
+ICE_BLUE = (200, 230, 255)
+BLOOD_RED = (100, 20, 20)
 
 # UI Colors
 MENU_BG = (20, 20, 30)
@@ -105,6 +107,23 @@ FLASHLIGHT_OUTER_RADIUS = 200
 
 # Jumpscare settings
 JUMPSCARE_FLASH_PROBABILITY = 0.7
+JUMPSCARE_DURATION = 3.0
+
+# Ghost behavior settings
+BEHAVIOR_MIN_INTERVAL = 5
+BEHAVIOR_MAX_INTERVAL = 30
+BEHAVIOR_AGGRESSION_FACTOR = 25
+BEHAVIOR_MIN_DURATION = 2.0
+BEHAVIOR_MAX_DURATION = 5.0
+MAX_ACTIVE_EFFECTS = 5
+
+# Evidence categories
+EVIDENCE_COLD = "cold_evidence"
+EVIDENCE_LIGHTS = "light_evidence"
+EVIDENCE_OBJECTS = "object_evidence"
+EVIDENCE_SOUNDS = "sound_evidence"
+EVIDENCE_VISUAL = "visual_evidence"
+EVIDENCE_WATER = "water_evidence"
 
 # Font sizes
 FONT_SMALL = 16

@@ -426,18 +426,32 @@ class IdentifyMenu:
         
     def update(self, mouse_pos):
         """Update button hover states"""
-        adjusted_pos = (mouse_pos[0], mouse_pos[1] + self.scroll_offset)
+        # Calculate position within scrollable area
+        clip_y_start = self.rect.y + 80
         for btn, ghost in self.buttons:
-            btn.update(adjusted_pos)
+            # Create adjusted rect accounting for scroll
+            adjusted_rect = btn.rect.copy()
+            adjusted_rect.y -= self.scroll_offset
+            # Check if mouse is over this button (within clip area)
+            if adjusted_rect.y >= clip_y_start - 40 and adjusted_rect.y < self.rect.bottom - 60:
+                btn.hovered = adjusted_rect.collidepoint(mouse_pos)
+            else:
+                btn.hovered = False
             
     def handle_click(self, pos):
         """Handle click events"""
-        # Check ghost buttons
-        adjusted_pos = (pos[0], pos[1] + self.scroll_offset)
+        clip_y_start = self.rect.y + 80
+        clip_y_end = self.rect.bottom - 60
+        
+        # Check ghost buttons - account for scroll offset
         for btn, ghost in self.buttons:
-            if btn.rect.collidepoint(adjusted_pos):
-                self.selected = ghost
-                return None
+            adjusted_rect = btn.rect.copy()
+            adjusted_rect.y -= self.scroll_offset
+            # Only check clicks within the visible clip area
+            if adjusted_rect.y >= clip_y_start - 40 and adjusted_rect.y < clip_y_end:
+                if adjusted_rect.collidepoint(pos):
+                    self.selected = ghost
+                    return None
         
         # Check confirm button
         if self.selected:
@@ -461,11 +475,20 @@ class ZoomView:
                                screen_rect.width * 2 // 3, screen_rect.height * 2 // 3)
         self.obj = None
         self.description = ""
+        self.ghost = None
+        self.flashlight_on = False
         
-    def set_object(self, obj):
+    def set_object(self, obj, ghost=None, flashlight_on=False):
         """Set the object to zoom on"""
         self.obj = obj
-        self.description = obj.zoom_description if obj.zoom_description else obj.description
+        self.ghost = ghost
+        self.flashlight_on = flashlight_on
+        # Get appropriate description
+        if ghost and flashlight_on and hasattr(obj, 'ghost_descriptions'):
+            self.description = obj.ghost_descriptions.get(ghost.name, 
+                               obj.zoom_description if obj.zoom_description else obj.description)
+        else:
+            self.description = obj.zoom_description if obj.zoom_description else obj.description
         
     def draw(self, surface, font):
         """Draw the zoom view"""
@@ -488,33 +511,113 @@ class ZoomView:
                                   self.rect.width - 100, self.rect.height - 200)
             pygame.draw.rect(surface, (60, 55, 50), obj_rect, border_radius=10)
             
-            # Draw a larger version of object interaction
-            center_text = font.render("[ Examining... ]", True, GRAY)
-            surface.blit(center_text, (obj_rect.centerx - center_text.get_width() // 2,
-                                      obj_rect.centery - center_text.get_height() // 2))
+            # Draw object-specific visualization
+            self.draw_object_detail(surface, obj_rect)
             
-            # Description
-            small_font = pygame.font.Font(None, 22)
+            # Description with proper word wrapping
+            small_font = pygame.font.Font(None, 24)
             words = self.description.split()
             lines = []
             current_line = ""
             for word in words:
                 test_line = current_line + word + " "
-                if small_font.size(test_line)[0] < self.rect.width - 60:
+                if small_font.size(test_line)[0] < self.rect.width - 80:
                     current_line = test_line
                 else:
                     lines.append(current_line)
                     current_line = word + " "
             lines.append(current_line)
             
-            y = self.rect.bottom - 100
-            for line in lines[-4:]:
-                text = small_font.render(line, True, CREAM)
-                surface.blit(text, (self.rect.x + 30, y))
-                y += 22
+            # Draw description
+            y = self.rect.bottom - 120
+            for line in lines[-5:]:
+                text = small_font.render(line.strip(), True, CREAM)
+                surface.blit(text, (self.rect.x + 40, y))
+                y += 24
         
         # Close instruction
         small_font = pygame.font.Font(None, 20)
         close_text = small_font.render("Click anywhere or press ESC to close", True, GRAY)
         surface.blit(close_text, (self.rect.centerx - close_text.get_width() // 2, 
                                  self.rect.bottom - 25))
+                                 
+    def draw_object_detail(self, surface, rect):
+        """Draw detailed visualization of the object"""
+        center_x = rect.centerx
+        center_y = rect.centery
+        
+        if not self.obj:
+            return
+            
+        name = self.obj.name.lower()
+        
+        # Draw based on object type
+        if "clock" in name:
+            # Draw large clock face
+            pygame.draw.circle(surface, (200, 180, 150), (center_x, center_y), 100)
+            pygame.draw.circle(surface, BLACK, (center_x, center_y), 100, 4)
+            # Clock hands at 3:33
+            pygame.draw.line(surface, BLACK, (center_x, center_y), (center_x, center_y - 60), 4)
+            pygame.draw.line(surface, BLACK, (center_x, center_y), (center_x + 50, center_y + 30), 4)
+            # Numbers
+            small_font = pygame.font.Font(None, 24)
+            for i in range(12):
+                angle = math.pi / 2 - i * math.pi / 6
+                x = center_x + int(80 * math.cos(angle))
+                y = center_y - int(80 * math.sin(angle))
+                num = small_font.render(str(i if i > 0 else 12), True, BLACK)
+                surface.blit(num, (x - num.get_width() // 2, y - num.get_height() // 2))
+                
+        elif "mirror" in name:
+            # Draw ornate mirror
+            pygame.draw.rect(surface, (120, 90, 50), (center_x - 80, center_y - 120, 160, 240))
+            pygame.draw.rect(surface, (180, 180, 200), (center_x - 60, center_y - 100, 120, 200))
+            # Ghostly reflection
+            if self.ghost and self.flashlight_on:
+                pygame.draw.circle(surface, self.ghost.color, (center_x, center_y - 30), 30, 2)
+                pygame.draw.line(surface, self.ghost.color, (center_x, center_y), (center_x, center_y + 50), 2)
+                
+        elif "portrait" in name or "photo" in name:
+            # Draw framed picture
+            pygame.draw.rect(surface, (100, 70, 40), (center_x - 90, center_y - 70, 180, 140))
+            pygame.draw.rect(surface, (180, 160, 140), (center_x - 70, center_y - 50, 140, 100))
+            # Faces
+            for i, x_off in enumerate([-35, 0, 35]):
+                color = (180, 150, 140) if i != 1 else (50, 50, 50)  # One scratched out
+                pygame.draw.circle(surface, color, (center_x + x_off, center_y - 20), 20)
+                
+        elif "diary" in name or "book" in name or "notebook" in name:
+            # Draw open book
+            pygame.draw.rect(surface, (100, 60, 40), (center_x - 100, center_y - 60, 200, 120))
+            pygame.draw.rect(surface, (240, 230, 210), (center_x - 90, center_y - 50, 85, 100))
+            pygame.draw.rect(surface, (240, 230, 210), (center_x + 5, center_y - 50, 85, 100))
+            # Text lines
+            for i in range(5):
+                pygame.draw.line(surface, GRAY, 
+                               (center_x - 80, center_y - 35 + i * 15),
+                               (center_x - 15, center_y - 35 + i * 15), 1)
+                               
+        elif "cabinet" in name:
+            # Draw cabinet with items
+            pygame.draw.rect(surface, (80, 60, 45), (center_x - 80, center_y - 80, 160, 160))
+            pygame.draw.rect(surface, (120, 140, 160), (center_x - 70, center_y - 70, 140, 140))
+            # Items inside
+            for i in range(3):
+                for j in range(2):
+                    pygame.draw.circle(surface, WHITE, 
+                                     (center_x - 40 + i * 40, center_y - 30 + j * 50), 15)
+                                     
+        elif "trunk" in name or "box" in name:
+            # Draw open trunk
+            pygame.draw.rect(surface, (90, 60, 40), (center_x - 80, center_y - 40, 160, 80))
+            pygame.draw.rect(surface, (70, 50, 30), (center_x - 80, center_y - 80, 160, 40))
+            # Items inside
+            pygame.draw.circle(surface, RED, (center_x - 30, center_y), 20)  # Ball
+            pygame.draw.rect(surface, CREAM, (center_x + 10, center_y - 20, 40, 30))  # Photo
+            
+        else:
+            # Default - show object name in center
+            name_text = pygame.font.Font(None, 36).render(self.obj.name, True, CREAM)
+            surface.blit(name_text, (center_x - name_text.get_width() // 2, center_y - 20))
+            detail_text = pygame.font.Font(None, 24).render("(Examining closely...)", True, GRAY)
+            surface.blit(detail_text, (center_x - detail_text.get_width() // 2, center_y + 20))
