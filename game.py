@@ -796,7 +796,7 @@ class Game:
             center_y = SCREEN_HEIGHT // 2
             
             # Flash effect
-            if random.random() > 0.3:
+            if random.random() < JUMPSCARE_FLASH_PROBABILITY:
                 self.screen.fill(self.jumpscare_ghost.color)
                 
             # Big scary ghost representation

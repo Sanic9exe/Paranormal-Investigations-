@@ -4,6 +4,7 @@ UI components for Paranormal Investigations
 
 import pygame
 import math
+import random
 from constants import *
 
 
@@ -250,11 +251,11 @@ class GhostBook:
                 pygame.draw.circle(surface, BLACK, (center_x + x, center_y + y), 3)
         
         # Sketch lines for effect
-        for _ in range(10):
-            import random
-            x1 = rect.x + random.randint(10, rect.width - 10)
-            y1 = rect.y + random.randint(10, rect.height - 10)
-            pygame.draw.line(surface, (230, 220, 200), (x1, y1), (x1 + 5, y1 + 3), 1)
+        if rect.width > 20 and rect.height > 20:
+            for _ in range(10):
+                x1 = rect.x + random.randint(10, rect.width - 10)
+                y1 = rect.y + random.randint(10, rect.height - 10)
+                pygame.draw.line(surface, (230, 220, 200), (x1, y1), (x1 + 5, y1 + 3), 1)
     
     def draw(self, surface, fonts):
         """Draw the ghost book"""

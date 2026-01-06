@@ -91,9 +91,10 @@ class Room:
         # Corner shadows for depth
         for i in range(20):
             alpha = 100 - i * 5
-            pygame.draw.line(surface, (*self.darken_color(BLACK, 0.5)[:3],), 
+            shadow_color = self.darken_color(BLACK, 0.5)
+            pygame.draw.line(surface, shadow_color, 
                            (i, 0), (i, SCREEN_HEIGHT), 1)
-            pygame.draw.line(surface, (*self.darken_color(BLACK, 0.5)[:3],),
+            pygame.draw.line(surface, shadow_color,
                            (SCREEN_WIDTH - i, 0), (SCREEN_WIDTH - i, SCREEN_HEIGHT), 1)
     
     def draw_navigation_hints(self, surface, font):
