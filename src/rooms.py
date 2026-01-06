@@ -12,16 +12,73 @@ class InteractiveObject:
     """An object in a room that can be interacted with"""
     
     def __init__(self, name, rect, description, interaction_type, zoom_description=None, 
-                 ghost_descriptions=None):
+                 ghost_descriptions=None, affected_descriptions=None):
         self.name = name
         self.rect = pygame.Rect(rect)
-        self.description = description
+        self.description = description  # Normal description
         self.interaction_type = interaction_type  # "toggle", "examine", "zoom"
         self.zoom_description = zoom_description
         self.ghost_descriptions = ghost_descriptions or {}  # {ghost_name: special_description}
+        # NEW: Descriptions when ghost has affected this object
+        self.affected_descriptions = affected_descriptions or {}  # {behavior_type: description}
         self.state = False  # For toggleable objects
         self.hovered = False
         self.clue_revealed = False
+        # NEW: Track if ghost has affected this object
+        self.ghost_affected = False
+        self.affected_by_behavior = None  # Which behavior affected it
+        self.affect_timer = 0  # How long the effect lasts
+        
+    def apply_ghost_effect(self, behavior):
+        """Apply a ghost behavior effect to this object"""
+        self.ghost_affected = True
+        self.affected_by_behavior = behavior
+        self.affect_timer = 30.0  # Effect lasts 30 seconds
+        
+    def update(self, dt):
+        """Update object state"""
+        if self.affect_timer > 0:
+            self.affect_timer -= dt
+            if self.affect_timer <= 0:
+                self.ghost_affected = False
+                self.affected_by_behavior = None
+        
+    def get_description(self, ghost=None, flashlight_on=False):
+        """Get the appropriate description based on state"""
+        # If ghost affected this object, show affected description
+        if self.ghost_affected and self.affected_by_behavior:
+            if self.affected_by_behavior in self.affected_descriptions:
+                return self.affected_descriptions[self.affected_by_behavior]
+            # Generic affected descriptions based on behavior type
+            return self._get_generic_affected_description()
+        
+        # If using flashlight and ghost-specific description exists
+        if flashlight_on and ghost and ghost.name in self.ghost_descriptions:
+            return self.ghost_descriptions[ghost.name]
+            
+        return self.zoom_description if self.zoom_description else self.description
+    
+    def _get_generic_affected_description(self):
+        """Get a generic description based on the behavior that affected it"""
+        behavior = self.affected_by_behavior
+        if 'cold' in behavior:
+            return f"The {self.name} is ice cold to the touch. Frost covers its surface."
+        elif 'throw' in behavior or 'move' in behavior or 'float' in behavior:
+            return f"The {self.name} has been violently displaced. It's still vibrating slightly."
+        elif 'slam' in behavior:
+            return f"The {self.name} shows signs of violent force. Something slammed it."
+        elif 'water' in behavior or 'wet' in behavior:
+            return f"The {self.name} is soaking wet. Water drips from it unnaturally."
+        elif 'blood' in behavior:
+            return f"The {self.name} has dark stains on it. They look fresh..."
+        elif 'scratch' in behavior:
+            return f"Deep scratch marks cover the {self.name}. They weren't there before."
+        elif 'whisper' in behavior:
+            return f"You hear faint whispers coming from the {self.name}..."
+        elif 'flicker' in behavior or 'dark' in behavior:
+            return f"The {self.name} flickers with an unnatural energy."
+        else:
+            return f"Something is wrong with the {self.name}. It feels... different."
         
     def get_description_for_ghost(self, ghost_name, flashlight_on=False):
         """Get description based on current ghost and flashlight state"""
@@ -33,9 +90,14 @@ class InteractiveObject:
         """Draw highlight when hovered"""
         if self.hovered:
             highlight_surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
-            highlight_surf.fill((255, 255, 100, 60))
+            # Different highlight color if ghost affected
+            if self.ghost_affected:
+                highlight_surf.fill((255, 100, 100, 80))  # Red tint for affected objects
+                pygame.draw.rect(surface, (255, 100, 100), self.rect, 2)
+            else:
+                highlight_surf.fill((255, 255, 100, 60))
+                pygame.draw.rect(surface, (255, 255, 100), self.rect, 2)
             surface.blit(highlight_surf, self.rect)
-            pygame.draw.rect(surface, (255, 255, 100), self.rect, 2)
 
 
 class Room:
@@ -52,6 +114,8 @@ class Room:
         self.ambient_darkness = 0
         self.lights_on = True  # Room lighting state
         self.effect_frame = 0  # For stable animations
+        # Hidden clues that only show with flashlight
+        self.hidden_clues = []  # List of (x, y, text, ghost_name) tuples
         self.setup_room()
         
     def setup_room(self):
@@ -61,6 +125,10 @@ class Room:
     def add_object(self, obj):
         """Add an interactive object to the room"""
         self.objects.append(obj)
+    
+    def add_hidden_clue(self, x, y, text, ghost_name=None):
+        """Add a hidden clue only visible with flashlight"""
+        self.hidden_clues.append((x, y, text, ghost_name))
     
     def toggle_lights(self):
         """Toggle room lights"""
@@ -73,9 +141,25 @@ class Room:
                 return obj
         return None
     
+    def apply_ghost_behavior_to_object(self, behavior):
+        """Apply a ghost behavior to a random object in this room"""
+        if not self.objects:
+            return None
+        # Pick a random object
+        obj = random.choice(self.objects)
+        obj.apply_ghost_effect(behavior)
+        return obj
+    
+    def get_affected_objects(self):
+        """Get list of objects currently affected by ghost"""
+        return [obj for obj in self.objects if obj.ghost_affected]
+    
     def update(self, dt):
         """Update room state"""
         self.effect_frame += 1
+        # Update all objects
+        for obj in self.objects:
+            obj.update(dt)
     
     def update_hover(self, mouse_pos):
         """Update hover state of objects"""
@@ -152,6 +236,13 @@ class Room:
         """Draw the complete room"""
         self.draw_base(surface)
         self.draw_details(surface)
+        
+        # Draw darkness overlay if lights are off (before highlights)
+        if not self.lights_on:
+            darkness_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            darkness_overlay.fill((0, 0, 0, 180))  # Significant darkness
+            surface.blit(darkness_overlay, (0, 0))
+        
         for obj in self.objects:
             obj.draw_highlight(surface)
         self.draw_navigation_hints(surface, font)
@@ -161,6 +252,27 @@ class Room:
         name_rect = name_text.get_rect(center=(SCREEN_WIDTH // 2, 25))
         pygame.draw.rect(surface, (0, 0, 0, 128), name_rect.inflate(20, 10))
         surface.blit(name_text, name_rect)
+    
+    def draw_hidden_clues(self, surface, flashlight_pos, flashlight_on, ghost=None):
+        """Draw hidden clues only visible in flashlight beam"""
+        if not flashlight_on:
+            return
+            
+        fx, fy = flashlight_pos
+        font = pygame.font.Font(None, 20)
+        
+        for x, y, text, ghost_name in self.hidden_clues:
+            # Check if in flashlight radius
+            dist = math.sqrt((x - fx) ** 2 + (y - fy) ** 2)
+            if dist < FLASHLIGHT_RADIUS:
+                # Calculate alpha based on distance
+                alpha = int(255 * (1 - dist / FLASHLIGHT_RADIUS))
+                
+                # Only show clue if ghost matches or ghost_name is None
+                if ghost_name is None or (ghost and ghost.name == ghost_name):
+                    clue_surf = font.render(text, True, (200, 100, 100))
+                    clue_surf.set_alpha(alpha)
+                    surface.blit(clue_surf, (x, y))
     
     def draw_details(self, surface):
         """Override in subclasses for room-specific details"""
@@ -214,6 +326,10 @@ class EntranceRoom(Room):
             "A light switch.",
             "toggle"
         ))
+        # Hidden clues only visible with flashlight
+        self.add_hidden_clue(300, 400, "HELP ME", "Bonnie")
+        self.add_hidden_clue(700, 350, "GET OUT", "Shadow Stalker")
+        self.add_hidden_clue(150, 500, "3:33 AM", None)  # Always visible with flashlight
     
     def draw_details(self, surface):
         # Grandfather clock
@@ -297,6 +413,10 @@ class LivingRoom(Room):
             "A dusty coffee table with old magazines.",
             "examine"
         ))
+        # Hidden clues
+        self.add_hidden_clue(550, 450, "IT BURNS", "The Burned Man")
+        self.add_hidden_clue(920, 380, "WATCHING YOU", "The Mimic")
+        self.add_hidden_clue(350, 520, "I SEE YOU", None)
     
     def draw_details(self, surface):
         # Fireplace
@@ -379,6 +499,10 @@ class KitchenRoom(Room):
             "An old gas stove. The burners flicker on their own.",
             "examine"
         ))
+        # Hidden clues
+        self.add_hidden_clue(550, 400, "THE KNIFE...", "The Butcher")
+        self.add_hidden_clue(150, 480, "MEAT", "The Butcher")
+        self.add_hidden_clue(800, 350, "MEDICINE TIME", "The Nurse")
     
     def draw_details(self, surface):
         # Counter
@@ -641,6 +765,10 @@ class BedroomRoom(Room):
             "A large window. The curtains move without wind.",
             "examine"
         ))
+        # Hidden clues
+        self.add_hidden_clue(500, 500, "DON'T SLEEP", "Nightmare")
+        self.add_hidden_clue(100, 450, "I'M IN HERE", "The Doll")
+        self.add_hidden_clue(1050, 400, "ROPE", "The Hanged Man")
     
     def draw_details(self, surface):
         # Bed
@@ -720,6 +848,10 @@ class BathroomRoom(Room):
             "The toilet. The water occasionally bubbles.",
             "examine"
         ))
+        # Hidden clues
+        self.add_hidden_clue(220, 250, "LOOK", "The Hanged Man")
+        self.add_hidden_clue(700, 400, "DROWN", "Weeping Lady")
+        self.add_hidden_clue(460, 320, "OVERDOSE", "The Nurse")
     
     def draw_details(self, surface):
         # Tile pattern on walls

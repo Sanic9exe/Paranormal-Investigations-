@@ -314,6 +314,107 @@ GHOST_ROSTER = [
             "style": "creepy"
         }
     ),
+    # NEW GHOSTS
+    Ghost(
+        name="The Burned Man",
+        description="A vengeful spirit of a man who died in a house fire. His rage burns eternal, and he leaves scorch marks wherever he goes.",
+        appearance="A charred humanoid figure with glowing embers in his eye sockets. Smoke constantly rises from his body, and patches of flame flicker across his form.",
+        behaviors=[
+            "flicker_lights",
+            "darken_room",
+            "breathing_sounds",
+            "sudden_appearance",
+            "meat_smell"
+        ],
+        base_aggression=0.75,
+        time_limit=420,  # 7 minutes
+        color=(255, 100, 50),
+        sketch_data={
+            "type": "humanoid",
+            "features": ["charred_body", "ember_eyes", "smoke", "flames"],
+            "style": "vengeful"
+        }
+    ),
+    Ghost(
+        name="The Doll",
+        description="The spirit of a girl who was murdered, now possessing her favorite porcelain doll. She giggles in the darkness and moves when you're not looking.",
+        appearance="A life-sized porcelain doll with cracked features and one missing eye. Wears a faded pink dress. Moves in jerky, mechanical motions.",
+        behaviors=[
+            "childish_laughter",
+            "toy_movement",
+            "whispers",
+            "sudden_appearance",
+            "mirror_appearances"
+        ],
+        base_aggression=0.55,
+        time_limit=600,  # 10 minutes
+        color=(255, 180, 200),
+        sketch_data={
+            "type": "humanoid",
+            "features": ["porcelain_face", "cracked", "missing_eye", "pink_dress"],
+            "style": "uncanny"
+        }
+    ),
+    Ghost(
+        name="The Hanged Man",
+        description="A suicide victim who now wanders the house, rope still around his neck. He appears in doorways and high places, always watching.",
+        appearance="A gaunt man with an elongated neck and a noose still tied around it. His head hangs at an unnatural angle. Eyes are bulging and bloodshot.",
+        behaviors=[
+            "shadow_movement",
+            "following_presence",
+            "breathing_sounds",
+            "knock_on_walls",
+            "darken_room"
+        ],
+        base_aggression=0.45,
+        time_limit=780,  # 13 minutes
+        color=(80, 70, 100),
+        sketch_data={
+            "type": "humanoid",
+            "features": ["long_neck", "noose", "tilted_head", "gaunt"],
+            "style": "tragic"
+        }
+    ),
+    Ghost(
+        name="The Mimic",
+        description="A shapeshifting entity that copies the appearance of loved ones to lure victims. It can never quite get the face right.",
+        appearance="Changes constantly, but always has something wrong - a smile too wide, eyes that don't blink, movements that are slightly off.",
+        behaviors=[
+            "whispered_names",
+            "mirror_reflection",
+            "visual_distortion",
+            "hallucinations",
+            "following_presence"
+        ],
+        base_aggression=0.6,
+        time_limit=540,  # 9 minutes
+        color=(150, 150, 150),
+        sketch_data={
+            "type": "shifting",
+            "features": ["wrong_face", "too_wide_smile", "unblinking_eyes"],
+            "style": "uncanny"
+        }
+    ),
+    Ghost(
+        name="The Nurse",
+        description="A nurse who killed her patients in this house when it was a hospital. She still 'cares' for the living, with deadly treatments.",
+        appearance="A nurse in an old-fashioned uniform stained with blood. Carries rusted medical instruments. Her face is kind but her eyes are hollow.",
+        behaviors=[
+            "wet_footprints",
+            "cold_spots",
+            "whispers",
+            "object_disappearing",
+            "breathing_sounds"
+        ],
+        base_aggression=0.5,
+        time_limit=660,  # 11 minutes
+        color=(255, 255, 255),
+        sketch_data={
+            "type": "humanoid",
+            "features": ["nurse_uniform", "blood_stains", "medical_tools", "hollow_eyes"],
+            "style": "clinical"
+        }
+    ),
 ]
 
 

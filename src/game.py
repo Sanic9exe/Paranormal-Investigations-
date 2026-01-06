@@ -9,6 +9,10 @@ from constants import *
 from ghosts import get_random_ghost, get_all_ghosts, Ghost, BEHAVIOR_EVIDENCE_MAP
 from rooms import create_all_rooms
 from ui import Button, Notebook, GhostBook, IdentifyMenu, ZoomView
+from equipment import EquipmentManager
+from particles import ParticleSystem, AmbientEffects
+from audio import AudioManager, Soundtrack
+from achievements import AchievementManager
 
 
 class Game:
@@ -44,9 +48,24 @@ class Game:
         self.identify_menu = None
         self.zoom_view = None
         
+        # NEW: Advanced systems
+        self.equipment = EquipmentManager()
+        self.particles = ParticleSystem()
+        self.ambient = AmbientEffects()
+        self.audio = AudioManager()
+        self.soundtrack = Soundtrack(self.audio)
+        self.achievements = AchievementManager()
+        
+        # NEW: Game statistics for achievements
+        self.rooms_visited = set()
+        self.equipment_used = set()
+        self.used_flashlight = False
+        self.wrong_guesses = 0
+        
         # Settings (must be set before create_menu_buttons)
         self.graphics_quality = "High"
         self.show_hints = True
+        self.show_tutorial = True
         
         # Menu buttons
         self.menu_buttons = []
@@ -96,13 +115,15 @@ class Game:
         
         # Main menu buttons
         self.menu_buttons = [
-            Button((center_x - 100, 300, 200, 50), "Start Game", self.fonts['medium'],
+            Button((center_x - 100, 280, 200, 50), "Start Game", self.fonts['medium'],
                   lambda: self.set_state(STATE_DIFFICULTY)),
-            Button((center_x - 100, 370, 200, 50), "Settings", self.fonts['medium'],
+            Button((center_x - 100, 340, 200, 50), "Settings", self.fonts['medium'],
                   lambda: self.set_state(STATE_SETTINGS)),
-            Button((center_x - 100, 440, 200, 50), "Credits", self.fonts['medium'],
+            Button((center_x - 100, 400, 200, 50), "Jumpscares", self.fonts['medium'],
+                  lambda: self.set_state(STATE_JUMPSCARE_GALLERY)),
+            Button((center_x - 100, 460, 200, 50), "Credits", self.fonts['medium'],
                   lambda: self.set_state(STATE_CREDITS)),
-            Button((center_x - 100, 510, 200, 50), "Quit", self.fonts['medium'],
+            Button((center_x - 100, 520, 200, 50), "Quit", self.fonts['medium'],
                   self.quit_game),
         ]
         
@@ -115,6 +136,11 @@ class Game:
             Button((center_x - 100, 450, 200, 50), "Back", self.fonts['medium'],
                   lambda: self.set_state(STATE_MENU)),
         ]
+        
+        # Jumpscare gallery state
+        self.gallery_scroll = 0
+        self.gallery_selected_ghost = None
+        self.gallery_jumpscare_timer = 0
         
         # Difficulty buttons
         self.difficulty_buttons = [
@@ -199,7 +225,32 @@ class Game:
         self.interaction_message = ""
         self.interaction_message_timer = 0
         
-        self.state = STATE_PLAYING
+        # NEW: Reset new systems
+        self.rooms_visited = {ROOM_ENTRANCE}
+        self.equipment_used = set()
+        self.used_flashlight = False
+        self.wrong_guesses = 0
+        
+        # Reset equipment
+        self.equipment = EquipmentManager()
+        
+        # Reset particles and ambient
+        self.particles.clear()
+        self.ambient = AmbientEffects()
+        
+        # Add welcome note
+        self.notebook.add_note("Investigation started...")
+        self.notebook.add_note(f"Location: {self.current_room.display_name}")
+        
+        # Play start sound
+        self.audio.play_ui_sound('open')
+        
+        # Show tutorial on first game
+        if self.show_tutorial:
+            self.state = STATE_TUTORIAL
+            self.show_tutorial = False  # Only show once
+        else:
+            self.state = STATE_PLAYING
         
     def resume_game(self):
         """Resume the game from pause"""
@@ -275,6 +326,10 @@ class Game:
             for btn in self.pause_buttons:
                 if btn.handle_click(pos):
                     return
+        
+        elif self.state == STATE_JUMPSCARE_GALLERY:
+            self.handle_gallery_click(pos)
+            return
                     
         elif self.state == STATE_PLAYING:
             # Check for room navigation
@@ -398,6 +453,43 @@ class Game:
             self.identify_menu.scroll(amount)
         elif self.state == STATE_GHOST_BOOK and self.ghost_book:
             self.ghost_book.scroll_offset += amount
+        elif self.state == STATE_JUMPSCARE_GALLERY:
+            self.gallery_scroll = max(0, self.gallery_scroll + amount)
+    
+    def handle_gallery_click(self, pos):
+        """Handle click in jumpscare gallery"""
+        # Check if playing a jumpscare
+        if self.gallery_selected_ghost:
+            # Click to dismiss jumpscare
+            self.gallery_selected_ghost = None
+            self.gallery_jumpscare_timer = 0
+            return
+            
+        # Back button area (top left)
+        if pos[0] < 100 and pos[1] < 50:
+            self.set_state(STATE_MENU)
+            return
+            
+        # Check ghost cards
+        card_width = 200
+        card_height = 250
+        cards_per_row = 4
+        start_x = 100
+        start_y = 100 - self.gallery_scroll
+        
+        for i, ghost in enumerate(self.all_ghosts):
+            row = i // cards_per_row
+            col = i % cards_per_row
+            x = start_x + col * (card_width + 20)
+            y = start_y + row * (card_height + 20)
+            
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+            if card_rect.collidepoint(pos):
+                # Start jumpscare for this ghost
+                self.gallery_selected_ghost = ghost
+                self.gallery_jumpscare_timer = JUMPSCARE_DURATION
+                self.audio.play_ghost_sound('scream', ghost.name)
+                return
             
     def handle_keydown(self, event):
         """Handle key press"""
@@ -407,8 +499,15 @@ class Game:
         if key == pygame.K_ESCAPE:
             if self.state == STATE_PLAYING:
                 self.state = STATE_PAUSED
+            elif self.state == STATE_TUTORIAL:
+                self.state = STATE_PLAYING
+            elif self.state == STATE_JUMPSCARE_GALLERY:
+                if self.gallery_selected_ghost:
+                    self.gallery_selected_ghost = None
+                else:
+                    self.state = STATE_MENU
             elif self.state in [STATE_PAUSED, STATE_NOTEBOOK, STATE_GHOST_BOOK, 
-                               STATE_IDENTIFY, STATE_ZOOM]:
+                               STATE_IDENTIFY, STATE_ZOOM, STATE_EQUIPMENT]:
                 self.state = STATE_PLAYING
             elif self.state in [STATE_SETTINGS, STATE_CREDITS, STATE_DIFFICULTY]:
                 self.state = STATE_MENU
@@ -416,15 +515,56 @@ class Game:
         if self.state == STATE_PLAYING:
             if key == pygame.K_f:
                 self.flashlight_on = not self.flashlight_on
+                self.equipment.flashlight.active = self.flashlight_on
+                if self.flashlight_on:
+                    self.used_flashlight = True
+                    self.equipment_used.add(EQUIPMENT_FLASHLIGHT)
+                    self.audio.play_ui_sound('click')
             elif key == pygame.K_n:
                 self.state = STATE_NOTEBOOK
                 self.notebook.editing = True
+                self.audio.play_ui_sound('open')
             elif key == pygame.K_g:
                 self.state = STATE_GHOST_BOOK
+                self.audio.play_ui_sound('open')
             elif key == pygame.K_i:
                 self.state = STATE_IDENTIFY
+                self.audio.play_ui_sound('open')
             elif key == pygame.K_p:
                 self.state = STATE_PAUSED
+            # NEW: Equipment controls
+            elif key == pygame.K_q:
+                self.equipment.switch_equipment(-1)
+                self.audio.play_ui_sound('click')
+            elif key == pygame.K_e:
+                self.equipment.switch_equipment(1)
+                self.audio.play_ui_sound('click')
+            elif key == pygame.K_SPACE:
+                self.equipment.toggle_current()
+                equip = self.equipment.active_equipment
+                if equip.active:
+                    self.equipment_used.add(equip.name)
+                self.audio.play_ui_sound('equip')
+            # NEW: Quick equipment hotkeys
+            elif key == pygame.K_1:
+                self.equipment.current_index = 0
+                self.equipment.active_equipment = self.equipment.all_equipment[0]
+            elif key == pygame.K_2:
+                self.equipment.current_index = 1
+                self.equipment.active_equipment = self.equipment.all_equipment[1]
+            elif key == pygame.K_3:
+                self.equipment.current_index = 2
+                self.equipment.active_equipment = self.equipment.all_equipment[2]
+            elif key == pygame.K_4:
+                self.equipment.current_index = 3
+                self.equipment.active_equipment = self.equipment.all_equipment[3]
+            elif key == pygame.K_5:
+                self.equipment.current_index = 4
+                self.equipment.active_equipment = self.equipment.all_equipment[4]
+                
+        elif self.state == STATE_TUTORIAL:
+            # Any key dismisses tutorial
+            self.state = STATE_PLAYING
                 
         elif self.state == STATE_NOTEBOOK:
             if self.notebook.editing:
@@ -450,24 +590,51 @@ class Game:
     def check_ghost_identification(self, selected_ghost):
         """Check if player correctly identified the ghost"""
         if selected_ghost.name == self.haunting_ghost.name:
-            # Correct!
+            # Correct! Calculate time taken
+            time_taken = (pygame.time.get_ticks() - self.game_start_ticks) / 1000.0
+            
+            # Check achievements
+            self.achievements.check_achievements({
+                'victory': True,
+                'difficulty': self.difficulty,
+                'time_taken': time_taken,
+                'used_flashlight': self.used_flashlight,
+                'evidence_collected': self.collected_evidence,
+                'rooms_visited': self.rooms_visited,
+                'equipment_used': self.equipment_used,
+                'wrong_guesses': self.wrong_guesses,
+                'ghost_name': self.haunting_ghost.name,
+            })
+            
+            self.audio.play_ui_sound('success')
             self.state = STATE_VICTORY
         else:
             # Wrong guess
             self.guesses_remaining -= 1
+            self.wrong_guesses += 1
             self.aggression += 0.2
             self.blind_effect = 2.0  # 2 seconds of blind effect
             self.wrong_guess_ghost = selected_ghost
             self.wrong_guess_timer = 3.0
+            
+            self.audio.play_ui_sound('fail')
             
             if self.guesses_remaining <= 0:
                 # Game over - jumpscare
                 self.jumpscare_ghost = self.haunting_ghost
                 self.jumpscare_timer = JUMPSCARE_DURATION
                 self.state = STATE_JUMPSCARE
+                self.audio.play_danger_sound('death')
+                
+                # Check achievements for loss
+                self.achievements.check_achievements({
+                    'victory': False,
+                    'difficulty': self.difficulty,
+                })
             else:
                 self.state = STATE_PLAYING
                 self.camera_shake = 0.5
+                self.ambient.trigger_shake(0.5)
                 self.show_interaction_message(f"Wrong! It wasn't {selected_ghost.name}!")
                 
     def update(self, dt):
@@ -475,12 +642,25 @@ class Game:
         # Calculate flash state once per frame
         self.frame_flash_state = random.random() < JUMPSCARE_FLASH_PROBABILITY
         
+        # Update achievements notifications
+        self.achievements.update(dt)
+        
+        # Update audio
+        ghost_nearby = self.ghost_arrived and self.aggression > 0.3
+        self.audio.update(dt, ghost_nearby)
+        
         if self.state == STATE_PLAYING:
             self.update_gameplay(dt)
         elif self.state == STATE_JUMPSCARE:
             self.jumpscare_timer -= dt
             if self.jumpscare_timer <= 0:
                 self.state = STATE_GAME_OVER
+        elif self.state == STATE_JUMPSCARE_GALLERY:
+            # Update gallery jumpscare timer
+            if self.gallery_selected_ghost and self.gallery_jumpscare_timer > 0:
+                self.gallery_jumpscare_timer -= dt
+                if self.gallery_jumpscare_timer <= 0:
+                    self.gallery_selected_ghost = None
                 
         # Update camera shake
         if self.camera_shake > 0:
@@ -512,6 +692,8 @@ class Game:
         # Update current room
         if self.current_room:
             self.current_room.update(dt)
+            # Track visited rooms
+            self.rooms_visited.add(self.current_room.name)
         
         # Check for ghost arrival
         if not self.ghost_arrived and elapsed_seconds >= self.grace_period:
@@ -519,13 +701,48 @@ class Game:
             self.ghost_arrival_ticks = current_ticks
             self.lightning_active = True
             self.lightning_timer = 0.5
+            self.ambient.trigger_lightning(0.5)
             self.notebook.add_note("The ghost has arrived! Be careful...")
+            self.audio.play_ghost_sound('moan', self.haunting_ghost.name)
             
         # Update lightning
         if self.lightning_active:
             self.lightning_timer -= dt
             if self.lightning_timer <= 0:
                 self.lightning_active = False
+        
+        # Calculate ghost proximity
+        ghost_nearby = self.ghost_arrived and self.aggression > 0.2
+        ghost_distance = 300 - (self.aggression * 250) if ghost_nearby else 500
+        
+        # Update equipment
+        self.equipment.update(dt, ghost_nearby, ghost_distance, self.haunting_ghost)
+        
+        # Update particles
+        self.particles.set_ghost_nearby(ghost_nearby, ghost_distance)
+        self.particles.update(dt)
+        
+        # Update ambient effects
+        self.ambient.update(dt)
+        
+        # Update soundtrack
+        time_remaining = 0
+        if self.ghost_arrived:
+            time_since_arrival = (current_ticks - self.ghost_arrival_ticks) / 1000.0
+            time_remaining = max(0, self.time_limit - time_since_arrival)
+        self.soundtrack.update(ghost_nearby, time_remaining)
+                    
+        # Random ambient events
+        if random.random() < AMBIENT_CREAK_CHANCE:
+            self.audio.play_ambient('creak')
+        if ghost_nearby and random.random() < AMBIENT_WHISPER_CHANCE:
+            self.audio.play_ambient('whisper')
+            
+        # Ghost hint whispers
+        if ghost_nearby and random.random() < 0.005:  # Rare ghost hint
+            if self.haunting_ghost.name in GHOST_HINTS:
+                hint = random.choice(GHOST_HINTS[self.haunting_ghost.name])
+                self.audio.play_ghost_sound('whisper', hint)
                 
         # Ghost behaviors
         if self.ghost_arrived:
@@ -548,7 +765,14 @@ class Game:
             if time_since_arrival >= self.time_limit:
                 self.jumpscare_ghost = self.haunting_ghost
                 self.jumpscare_timer = JUMPSCARE_DURATION
+                self.audio.play_danger_sound('death')
                 self.state = STATE_JUMPSCARE
+                
+                # Check achievements for timeout death
+                self.achievements.check_achievements({
+                    'victory': False,
+                    'difficulty': self.difficulty,
+                })
                 
     def trigger_ghost_behavior(self):
         """Trigger a random ghost behavior"""
@@ -565,6 +789,29 @@ class Game:
             'duration': random.uniform(BEHAVIOR_MIN_DURATION, BEHAVIOR_MAX_DURATION)
         })
         
+        # NEW: Apply behavior to a random object in the current room
+        if self.current_room and random.random() < 0.7:  # 70% chance to affect an object
+            affected_obj = self.current_room.apply_ghost_behavior_to_object(behavior)
+            if affected_obj:
+                self.notebook.add_note(f"The {affected_obj.name} was affected by something!")
+        
+        # Play appropriate ghost sound
+        if 'whisper' in behavior:
+            self.audio.play_ghost_sound('whisper', self.haunting_ghost.name)
+        elif 'slam' in behavior:
+            self.audio.play_ghost_sound('slam')
+            self.ambient.trigger_shake(0.4)
+        elif 'cry' in behavior or 'crying' in behavior:
+            self.audio.play_ghost_sound('cry')
+        elif 'laugh' in behavior:
+            self.audio.play_ghost_sound('laugh')
+            
+        # Spawn particles for certain behaviors
+        if 'cold' in behavior:
+            self.particles.spawn_breath(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50)
+        elif 'orb' in behavior or 'float' in behavior:
+            self.particles.spawn_burst(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, PARTICLE_ORBS, 5)
+        
         # Log the behavior for evidence
         evidence_type = BEHAVIOR_EVIDENCE_MAP.get(behavior)
         if evidence_type:
@@ -578,10 +825,12 @@ class Game:
                 self.collected_evidence.add(evidence_type)
                 evidence_name = evidence_type.replace("_", " ").title()
                 self.notebook.add_note(f"Detected: {behavior.replace('_', ' ').title()}")
+                self.audio.play_sound("Evidence collected!", 'discovery')
         
         # Some behaviors cause camera shake
         if behavior in ['slam_doors', 'throw_objects', 'violent_door_slams', 'move_furniture']:
             self.camera_shake = 0.3
+            self.ambient.trigger_shake(0.3)
             
     def draw(self):
         """Draw the current game state"""
@@ -596,6 +845,8 @@ class Game:
             self.draw_credits()
         elif self.state == STATE_DIFFICULTY:
             self.draw_difficulty()
+        elif self.state == STATE_TUTORIAL:
+            self.draw_tutorial()
         elif self.state == STATE_PLAYING:
             self.draw_gameplay()
         elif self.state == STATE_PAUSED:
@@ -619,6 +870,11 @@ class Game:
             self.draw_game_over()
         elif self.state == STATE_VICTORY:
             self.draw_victory()
+        elif self.state == STATE_JUMPSCARE_GALLERY:
+            self.draw_jumpscare_gallery()
+        
+        # Draw achievement notifications on top of everything
+        self.achievements.draw_notification(self.screen, self.fonts['medium'])
             
         pygame.display.flip()
         
@@ -713,13 +969,21 @@ class Game:
         
         if self.current_room:
             self.current_room.draw(self.screen, self.fonts['medium'])
+        
+        # Draw particles (background layer)
+        self.particles.draw(self.screen)
             
         # Draw ghost effects
         self.draw_ghost_effects()
         
-        # Draw flashlight
+        # Draw UV light effects
+        if self.equipment.uv_light.active:
+            self.equipment.uv_light.draw_effect(self.screen, self.mouse_pos)
+        
+        # Draw flashlight (using new equipment system)
         if self.flashlight_on:
-            self.draw_flashlight()
+            darkness = 200 if not self.current_room.lights_on else 100
+            self.equipment.flashlight.draw_beam(self.screen, self.mouse_pos, darkness)
             
         # Draw blind effect
         if self.blind_effect > 0:
@@ -729,8 +993,32 @@ class Game:
         if self.lightning_active:
             self.draw_lightning()
             
+        # Draw ambient effects
+        self.ambient.draw_vignette(self.screen)
+        self.ambient.draw_lightning(self.screen)
+            
         # Draw HUD
         self.draw_hud()
+        
+        # Draw equipment bar
+        self.equipment.draw_equipment_bar(self.screen, self.fonts['small'])
+        
+        # Draw equipment-specific UI
+        if self.equipment.emf_reader.active:
+            emf_rect = pygame.Rect(SCREEN_WIDTH - 120, 200, 100, 60)
+            self.equipment.emf_reader.draw_ui(self.screen, emf_rect, self.fonts['small'])
+        if self.equipment.thermometer.active:
+            therm_rect = pygame.Rect(SCREEN_WIDTH - 120, 270, 100, 60)
+            self.equipment.thermometer.draw_ui(self.screen, therm_rect, self.fonts['small'])
+        if self.equipment.spirit_box.active:
+            sb_rect = pygame.Rect(SCREEN_WIDTH - 120, 340, 100, 60)
+            self.equipment.spirit_box.draw_ui(self.screen, sb_rect, self.fonts['small'])
+        
+        # Draw sound indicators
+        self.audio.draw_indicators(self.screen, self.fonts['small'])
+        
+        # Draw minimap
+        self.draw_minimap()
         
         # Draw hints
         if self.show_hints:
@@ -895,15 +1183,17 @@ class Game:
                                                   RED if self.guesses_remaining == 1 else WHITE)
         self.screen.blit(guesses_text, (10, 10))
         
-        # Flashlight indicator
-        fl_text = "Flashlight: ON" if self.flashlight_on else "Flashlight: OFF"
+        # Flashlight with battery
+        fl_text = f"Flashlight: {'ON' if self.flashlight_on else 'OFF'}"
+        if self.flashlight_on:
+            fl_text += f" ({int(self.equipment.flashlight.battery)}%)"
         fl_color = YELLOW if self.flashlight_on else GRAY
         fl_surf = self.fonts['small'].render(fl_text, True, fl_color)
         self.screen.blit(fl_surf, (10, 40))
         
         # Evidence collected
+        evidence_y = 60
         if self.collected_evidence:
-            evidence_y = 65
             ev_title = self.fonts['small'].render("Evidence:", True, GREEN)
             self.screen.blit(ev_title, (10, evidence_y))
             evidence_y += 18
@@ -917,7 +1207,7 @@ class Game:
         if self.interaction_message_timer > 0 and self.interaction_message:
             msg_alpha = min(255, int(self.interaction_message_timer * 128))
             msg_surf = self.fonts['medium'].render(self.interaction_message, True, WHITE)
-            msg_rect = msg_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80))
+            msg_rect = msg_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100))
             # Background
             bg_rect = msg_rect.inflate(20, 10)
             bg_surf = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
@@ -933,10 +1223,313 @@ class Game:
             self.screen.blit(wrong_surf, wrong_rect)
         
         # Controls hint
-        controls = "N: Notes | G: Ghost Book | I: Identify | F: Flashlight | ESC: Pause"
+        controls = "N: Notes | G: Ghost Book | I: Identify | Q/E: Equipment | SPACE: Toggle"
         controls_surf = self.fonts['small'].render(controls, True, DARK_GRAY)
         self.screen.blit(controls_surf, (SCREEN_WIDTH // 2 - controls_surf.get_width() // 2, 
                                         SCREEN_HEIGHT - 25))
+    
+    def draw_minimap(self):
+        """Draw a minimap showing room connections"""
+        # Minimap background
+        map_x = MINIMAP_MARGIN
+        map_y = SCREEN_HEIGHT - MINIMAP_SIZE - MINIMAP_MARGIN - 60  # Above equipment bar
+        
+        map_surf = pygame.Surface((MINIMAP_SIZE, MINIMAP_SIZE), pygame.SRCALPHA)
+        map_surf.fill((20, 20, 30, MINIMAP_ALPHA))
+        
+        # Room positions on minimap (simplified layout)
+        room_positions = {
+            ROOM_ENTRANCE: (75, 130),
+            ROOM_LIVING_ROOM: (30, 100),
+            ROOM_HALLWAY: (75, 85),
+            ROOM_KITCHEN: (120, 100),
+            ROOM_DINING_ROOM: (120, 130),
+            ROOM_BEDROOM: (30, 55),
+            ROOM_BATHROOM: (75, 55),
+            ROOM_STUDY: (120, 55),
+            ROOM_ATTIC: (75, 20),
+            ROOM_BASEMENT: (75, 130),  # Below entrance
+        }
+        
+        # Draw connections
+        if self.rooms:
+            for room_name, pos in room_positions.items():
+                if room_name in self.rooms:
+                    room = self.rooms[room_name]
+                    for direction, connected_room in room.connections.items():
+                        if connected_room in room_positions:
+                            other_pos = room_positions[connected_room]
+                            pygame.draw.line(map_surf, DARK_GRAY, pos, other_pos, 1)
+        
+        # Draw rooms
+        for room_name, pos in room_positions.items():
+            if room_name == self.current_room.name:
+                # Current room - highlighted
+                pygame.draw.circle(map_surf, YELLOW, pos, 8)
+                pygame.draw.circle(map_surf, WHITE, pos, 8, 1)
+            elif room_name in self.rooms_visited:
+                # Visited room
+                pygame.draw.circle(map_surf, (80, 100, 80), pos, 6)
+            else:
+                # Unvisited room
+                pygame.draw.circle(map_surf, DARK_GRAY, pos, 5)
+        
+        # Draw border
+        pygame.draw.rect(map_surf, GRAY, (0, 0, MINIMAP_SIZE, MINIMAP_SIZE), 1)
+        
+        # Label
+        label = self.fonts['small'].render("Map", True, GRAY)
+        map_surf.blit(label, (MINIMAP_SIZE // 2 - label.get_width() // 2, 2))
+        
+        self.screen.blit(map_surf, (map_x, map_y))
+    
+    def draw_tutorial(self):
+        """Draw tutorial overlay"""
+        # Dark background
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 220))
+        self.screen.blit(overlay, (0, 0))
+        
+        # Title
+        title = self.fonts['title'].render("How to Play", True, WHITE)
+        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+        
+        # Tutorial content
+        tutorials = [
+            ("🔦 EQUIPMENT", [
+                "F: Toggle flashlight (drains battery)",
+                "Q/E: Switch between equipment",
+                "SPACE: Toggle current equipment ON/OFF",
+                "1-5: Quick select equipment",
+            ]),
+            ("🔍 INVESTIGATION", [
+                "Explore rooms to find the ghost",
+                "Collect evidence (cold spots, EMF, etc.)",
+                "Use the Ghost Book (G) to learn ghost types",
+                "Check your Notes (N) for clues",
+            ]),
+            ("👻 SURVIVAL", [
+                "Turn off lights and use flashlight to find hidden clues",
+                "Objects affected by ghosts glow red - examine them!",
+                "Identify the ghost (I) before time runs out",
+                "Wrong guesses anger the ghost!",
+            ]),
+            ("🎮 CONTROLS", [
+                "Click edges of screen to move rooms",
+                "Click objects to interact",
+                "ESC: Pause game",
+                "Mouse: Aim flashlight",
+            ]),
+        ]
+        
+        y = 130
+        for section_title, items in tutorials:
+            # Section title
+            section = self.fonts['medium'].render(section_title, True, YELLOW)
+            self.screen.blit(section, (100, y))
+            y += 30
+            
+            for item in items:
+                text = self.fonts['small'].render(f"  • {item}", True, LIGHT_GRAY)
+                self.screen.blit(text, (120, y))
+                y += 22
+            y += 15
+        
+        # Continue prompt
+        prompt = self.fonts['medium'].render("Press any key to start...", True, GREEN)
+        self.screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, SCREEN_HEIGHT - 60))
+    
+    def draw_jumpscare_gallery(self):
+        """Draw the jumpscare gallery menu"""
+        # If a jumpscare is playing, show that
+        if self.gallery_selected_ghost:
+            self.draw_gallery_jumpscare()
+            return
+            
+        # Background
+        self.screen.fill(MENU_BG)
+        
+        # Title
+        title = self.fonts['title'].render("Jumpscare Gallery", True, RED)
+        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 20))
+        
+        subtitle = self.fonts['medium'].render("Click a ghost to see their jumpscare!", True, GRAY)
+        self.screen.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 70))
+        
+        # Back button
+        back_text = self.fonts['medium'].render("< Back", True, WHITE)
+        self.screen.blit(back_text, (20, 20))
+        
+        # Ghost cards grid
+        card_width = 200
+        card_height = 250
+        cards_per_row = 4
+        start_x = 100
+        start_y = 100 - self.gallery_scroll
+        
+        for i, ghost in enumerate(self.all_ghosts):
+            row = i // cards_per_row
+            col = i % cards_per_row
+            x = start_x + col * (card_width + 20)
+            y = start_y + row * (card_height + 20)
+            
+            # Skip if off screen
+            if y + card_height < 0 or y > SCREEN_HEIGHT:
+                continue
+                
+            # Card background
+            card_color = ghost.color if ghost.color else (60, 60, 80)
+            # Darken the color for background
+            bg_color = tuple(max(20, c // 3) for c in card_color[:3])
+            pygame.draw.rect(self.screen, bg_color, (x, y, card_width, card_height), border_radius=10)
+            pygame.draw.rect(self.screen, card_color, (x, y, card_width, card_height), 3, border_radius=10)
+            
+            # Ghost name
+            name = self.fonts['medium'].render(ghost.name, True, WHITE)
+            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 10))
+            
+            # Ghost sketch area
+            sketch_rect = pygame.Rect(x + 20, y + 45, card_width - 40, 140)
+            pygame.draw.rect(self.screen, (30, 30, 40), sketch_rect, border_radius=5)
+            
+            # Draw simple ghost representation
+            self.draw_ghost_preview(sketch_rect.centerx, sketch_rect.centery, ghost)
+            
+            # "Click to view" text
+            click_text = self.fonts['small'].render("Click to view", True, GRAY)
+            self.screen.blit(click_text, (x + card_width // 2 - click_text.get_width() // 2, y + card_height - 30))
+            
+            # Hover effect
+            mouse_x, mouse_y = self.mouse_pos
+            if x <= mouse_x <= x + card_width and y <= mouse_y <= y + card_height:
+                hover_overlay = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
+                hover_overlay.fill((255, 255, 255, 30))
+                self.screen.blit(hover_overlay, (x, y))
+        
+        # Scroll hint if needed
+        total_rows = (len(self.all_ghosts) + cards_per_row - 1) // cards_per_row
+        total_height = total_rows * (card_height + 20)
+        if total_height > SCREEN_HEIGHT - 120:
+            scroll_hint = self.fonts['small'].render("Scroll to see more", True, GRAY)
+            self.screen.blit(scroll_hint, (SCREEN_WIDTH // 2 - scroll_hint.get_width() // 2, SCREEN_HEIGHT - 30))
+    
+    def draw_ghost_preview(self, x, y, ghost):
+        """Draw a small preview of the ghost"""
+        color = ghost.color if ghost.color else (150, 150, 200)
+        
+        # Simple ghost shape based on sketch data
+        sketch_type = ghost.sketch_data.get('type', 'humanoid')
+        
+        if sketch_type == 'humanoid':
+            # Head
+            pygame.draw.circle(self.screen, color, (x, y - 30), 20)
+            # Body
+            pygame.draw.line(self.screen, color, (x, y - 10), (x, y + 30), 3)
+            # Arms
+            pygame.draw.line(self.screen, color, (x - 25, y), (x + 25, y), 3)
+            # Legs
+            pygame.draw.line(self.screen, color, (x, y + 30), (x - 15, y + 55), 3)
+            pygame.draw.line(self.screen, color, (x, y + 30), (x + 15, y + 55), 3)
+        elif sketch_type == 'amorphous':
+            # Swirling mass
+            for i in range(5):
+                offset = i * 5
+                pygame.draw.circle(self.screen, color, (x + offset - 10, y + offset - 10), 25 - i * 3)
+        elif sketch_type == 'shifting':
+            # Multiple overlapping shapes
+            pygame.draw.circle(self.screen, color, (x - 10, y - 10), 20)
+            pygame.draw.circle(self.screen, color, (x + 10, y + 10), 20)
+            pygame.draw.circle(self.screen, (255, 50, 50), (x - 5, y - 15), 5)
+            pygame.draw.circle(self.screen, (255, 50, 50), (x + 15, y + 5), 5)
+        else:
+            # Default ghost
+            pygame.draw.ellipse(self.screen, color, (x - 25, y - 35, 50, 70))
+    
+    def draw_gallery_jumpscare(self):
+        """Draw the gallery jumpscare effect"""
+        ghost = self.gallery_selected_ghost
+        if not ghost:
+            return
+            
+        # Similar to regular jumpscare but with more control
+        progress = 1 - (self.gallery_jumpscare_timer / JUMPSCARE_DURATION)
+        
+        # Flashing background
+        if self.frame_flash_state:
+            self.screen.fill(WHITE)
+        else:
+            self.screen.fill(BLACK)
+            
+        # Draw the ghost large and centered
+        ghost_color = ghost.color if ghost.color else (200, 50, 50)
+        
+        # Shake effect
+        shake_x = random.randint(-20, 20)
+        shake_y = random.randint(-20, 20)
+        center_x = SCREEN_WIDTH // 2 + shake_x
+        center_y = SCREEN_HEIGHT // 2 + shake_y
+        
+        # Draw ghost shape based on type
+        sketch_type = ghost.sketch_data.get('type', 'humanoid')
+        
+        if sketch_type == 'humanoid':
+            # Large menacing figure
+            # Head
+            head_size = 80 + int(progress * 40)
+            pygame.draw.circle(self.screen, ghost_color, (center_x, center_y - 150), head_size)
+            # Scary eyes
+            eye_color = (255, 0, 0) if self.frame_flash_state else (255, 255, 0)
+            pygame.draw.circle(self.screen, eye_color, (center_x - 30, center_y - 160), 15)
+            pygame.draw.circle(self.screen, eye_color, (center_x + 30, center_y - 160), 15)
+            pygame.draw.circle(self.screen, BLACK, (center_x - 30, center_y - 160), 8)
+            pygame.draw.circle(self.screen, BLACK, (center_x + 30, center_y - 160), 8)
+            # Body
+            pygame.draw.polygon(self.screen, ghost_color, [
+                (center_x, center_y - 70),
+                (center_x - 150, center_y + 200),
+                (center_x + 150, center_y + 200)
+            ])
+            # Arms reaching out
+            arm_extend = int(progress * 100)
+            pygame.draw.line(self.screen, ghost_color, 
+                           (center_x - 100, center_y), 
+                           (center_x - 200 - arm_extend, center_y - 50 + shake_y), 20)
+            pygame.draw.line(self.screen, ghost_color,
+                           (center_x + 100, center_y),
+                           (center_x + 200 + arm_extend, center_y - 50 + shake_y), 20)
+        elif sketch_type == 'amorphous':
+            # Swirling chaotic mass
+            for i in range(20):
+                offset_x = random.randint(-200, 200)
+                offset_y = random.randint(-200, 200)
+                size = random.randint(30, 100)
+                pygame.draw.circle(self.screen, ghost_color, 
+                                 (center_x + offset_x, center_y + offset_y), size)
+            # Red eyes scattered
+            for _ in range(5):
+                ex = center_x + random.randint(-150, 150)
+                ey = center_y + random.randint(-150, 150)
+                pygame.draw.circle(self.screen, RED, (ex, ey), 10)
+        else:
+            # Default scary ghost
+            pygame.draw.ellipse(self.screen, ghost_color,
+                              (center_x - 150, center_y - 200, 300, 400))
+            # Eyes
+            pygame.draw.circle(self.screen, RED, (center_x - 50, center_y - 100), 25)
+            pygame.draw.circle(self.screen, RED, (center_x + 50, center_y - 100), 25)
+            # Mouth
+            pygame.draw.arc(self.screen, BLACK, 
+                          (center_x - 80, center_y, 160, 80), 3.14, 6.28, 10)
+        
+        # Ghost name flashing
+        if not self.frame_flash_state:
+            name_text = self.fonts['title'].render(ghost.name.upper(), True, ghost_color)
+            self.screen.blit(name_text, (SCREEN_WIDTH // 2 - name_text.get_width() // 2, 50))
+        
+        # Click to dismiss hint
+        if progress > 0.5:
+            dismiss = self.fonts['medium'].render("Click or press ESC to dismiss", True, GRAY)
+            self.screen.blit(dismiss, (SCREEN_WIDTH // 2 - dismiss.get_width() // 2, SCREEN_HEIGHT - 50))
         
     def draw_hints(self):
         """Draw gameplay hints"""

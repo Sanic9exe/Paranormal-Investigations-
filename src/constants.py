@@ -46,6 +46,7 @@ STATE_JUMPSCARE = "jumpscare"
 STATE_GAME_OVER = "game_over"
 STATE_VICTORY = "victory"
 STATE_ZOOM = "zoom"
+STATE_JUMPSCARE_GALLERY = "jumpscare_gallery"  # NEW: View jumpscares mode
 
 # Difficulty settings
 DIFFICULTY_EASY = "easy"
@@ -131,3 +132,89 @@ FONT_TITLE = 72
 
 # FPS
 FPS = 60
+
+# === NEW FEATURES ===
+
+# Equipment types
+EQUIPMENT_FLASHLIGHT = "flashlight"
+EQUIPMENT_EMF = "emf_reader"
+EQUIPMENT_THERMOMETER = "thermometer"
+EQUIPMENT_SPIRIT_BOX = "spirit_box"
+EQUIPMENT_UV_LIGHT = "uv_light"
+EQUIPMENT_CAMERA = "camera"
+
+# Flashlight battery
+FLASHLIGHT_BATTERY_MAX = 100
+FLASHLIGHT_DRAIN_RATE = 2.0  # Per second
+FLASHLIGHT_FLICKER_THRESHOLD = 20  # Battery level when flickering starts
+
+# EMF levels
+EMF_LEVEL_0 = 0  # No activity
+EMF_LEVEL_1 = 1  # Minimal
+EMF_LEVEL_2 = 2  # Low
+EMF_LEVEL_3 = 3  # Medium
+EMF_LEVEL_4 = 4  # High
+EMF_LEVEL_5 = 5  # Extreme (ghost nearby!)
+
+# Temperature ranges (Fahrenheit)
+TEMP_NORMAL_MIN = 65
+TEMP_NORMAL_MAX = 75
+TEMP_COLD_MIN = 32
+TEMP_COLD_MAX = 50
+TEMP_FREEZING = 28  # Ghost freezing temp indicator
+
+# Particle types
+PARTICLE_DUST = "dust"
+PARTICLE_FOG = "fog"
+PARTICLE_RAIN = "rain"
+PARTICLE_ORBS = "orbs"
+PARTICLE_BREATH = "breath"
+
+# Tutorial state
+STATE_TUTORIAL = "tutorial"
+
+# New game states
+STATE_EQUIPMENT = "equipment"
+STATE_DEATH_RECAP = "death_recap"
+
+# Achievement categories
+ACHIEVEMENT_FIRST_GHOST = "first_ghost"
+ACHIEVEMENT_SPEED_RUN = "speed_run"
+ACHIEVEMENT_NO_FLASHLIGHT = "no_flashlight"
+ACHIEVEMENT_ALL_EVIDENCE = "all_evidence"
+ACHIEVEMENT_SURVIVOR = "survivor"
+ACHIEVEMENT_NIGHTMARE_WIN = "nightmare_win"
+
+# Ghost hints/whispers
+GHOST_HINTS = {
+    "Bonnie": ["...the fire... it hurts...", "...my face... don't look...", "...performer..."],
+    "Poltergeist": ["...everything must move...", "...chaos...", "...throw it all..."],
+    "Weeping Lady": ["...my love... where are you...", "...tears... so many tears...", "...the wedding..."],
+    "Shadow Stalker": ["...in the darkness...", "...watching... always watching...", "...corners..."],
+    "Little Timmy": ["...wanna play?...", "...hide and seek...", "...toys..."],
+    "The Butcher": ["...meat... fresh meat...", "...the cleaver...", "...kitchen..."],
+    "Ethereal Bride": ["...my wedding day...", "...he never came...", "...waiting forever..."],
+    "The Librarian": ["...silence!...", "...the books must be quiet...", "...shhhh..."],
+    "Nightmare": ["...your fears...", "...I see everything...", "...reality bends..."],
+    "The Collector": ["...so many things...", "...mine... all mine...", "...precious items..."],
+    "The Burned Man": ["...the flames...", "...I can still feel it...", "...burn with me..."],
+    "The Doll": ["...play with me...", "...don't leave me alone...", "...I'm a good girl..."],
+    "The Hanged Man": ["...the rope... so tight...", "...they made me do it...", "...look up..."],
+    "The Mimic": ["...I know your face...", "...who are you really?...", "...let me in..."],
+    "The Nurse": ["...time for your medicine...", "...this won't hurt...", "...visiting hours are over..."]
+}
+
+# Minimap settings
+MINIMAP_SIZE = 150
+MINIMAP_MARGIN = 10
+MINIMAP_ALPHA = 180
+
+# Ambient event probabilities
+AMBIENT_CREAK_CHANCE = 0.002  # Per frame
+AMBIENT_THUNDER_CHANCE = 0.0005
+AMBIENT_WHISPER_CHANCE = 0.001
+
+# Colors for new features
+EMF_COLOR = (0, 255, 0)
+COLD_COLOR = (100, 150, 255)
+EQUIPMENT_BG = (30, 30, 40, 200)
