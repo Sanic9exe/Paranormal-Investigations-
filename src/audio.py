@@ -119,12 +119,13 @@ class AudioManager:
             
     def play_ghost_sound(self, sound_type, ghost_name=None):
         """Play a ghost-related sound"""
+        # Build text based on sound type
         ghost_sounds = {
             'moan': "Ghostly moan...",
             'scream': "Terrifying scream!",
             'laugh': "Eerie laughter...",
             'cry': "Crying sounds...",
-            'whisper': f"'{ghost_name}' whispers...",
+            'whisper': "Whispers...",  # Will be customized below
             'growl': "Threatening growl...",
             'slam': "DOOR SLAM!",
             'scratch': "Scratching sounds...",
@@ -134,7 +135,10 @@ class AudioManager:
         
         if sound_type in ghost_sounds:
             text = ghost_sounds[sound_type]
-            if ghost_name and '{ghost_name}' not in text:
+            # Customize whisper text if ghost name provided
+            if sound_type == 'whisper' and ghost_name:
+                text = f"'{ghost_name}' whispers..."
+            elif ghost_name:
                 text = f"[{ghost_name}] {text}"
             self.play_sound(text, 'ghost', SCREEN_WIDTH // 2, 150)
             

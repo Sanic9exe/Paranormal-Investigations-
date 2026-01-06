@@ -11,6 +11,332 @@ from constants import *
 class InteractiveObject:
     """An object in a room that can be interacted with"""
     
+    # Unique affected messages for each object + ghost combination
+    GHOST_OBJECT_MESSAGES = {
+        # Grandfather Clock messages
+        ("Grandfather Clock", "Bonnie"): "The clock hands spin wildly, stopping at 3:33. Burn marks appear on the wood.",
+        ("Grandfather Clock", "Poltergeist"): "The clock flies off the wall and crashes! The pendulum swings violently.",
+        ("Grandfather Clock", "Weeping Lady"): "Tears stream down the clock face. The ticking sounds like sobbing.",
+        ("Grandfather Clock", "Shadow Stalker"): "The clock is shrouded in darkness. You can't see the time anymore.",
+        ("Grandfather Clock", "Little Timmy"): "Small handprints appear on the glass. The clock chimes a nursery rhyme.",
+        ("Grandfather Clock", "The Butcher"): "Deep gouges appear in the wood, like cleaver marks. Blood drips from the hands.",
+        ("Grandfather Clock", "Ethereal Bride"): "Wedding bells chime from within. The time shows the hour of a wedding.",
+        ("Grandfather Clock", "The Librarian"): "A finger 'SHHHH' is etched into the glass. The ticking becomes silent.",
+        ("Grandfather Clock", "Nightmare"): "The clock shows impossible times. Multiple hands point in all directions.",
+        ("Grandfather Clock", "The Collector"): "Trinkets and coins spill from the clock's case. It's been stuffed full.",
+        ("Grandfather Clock", "The Burned Man"): "The clock is charred and smoking. The fire smell is overwhelming.",
+        ("Grandfather Clock", "The Doll"): "A tiny porcelain hand waves from behind the glass. Giggling echoes.",
+        ("Grandfather Clock", "The Hanged Man"): "A noose hangs from the clock hands. It swings like a pendulum.",
+        ("Grandfather Clock", "The Mimic"): "Your reflection appears in the glass, but it's smiling when you're not.",
+        ("Grandfather Clock", "The Nurse"): "Medical charts are stuffed inside. The time reads 'Time of Death'.",
+        
+        # Front Door messages
+        ("Front Door", "Bonnie"): "Scorch marks outline a figure on the door. It's reaching for the handle.",
+        ("Front Door", "Poltergeist"): "The door slams repeatedly! Open-close-open-close at impossible speed!",
+        ("Front Door", "Weeping Lady"): "Water seeps under the door. Wet footprints lead away into the house.",
+        ("Front Door", "Shadow Stalker"): "The door is pure black. No light passes through the cracks.",
+        ("Front Door", "Little Timmy"): "Crayon drawings of a family appear on the door. One figure is crossed out.",
+        ("Front Door", "The Butcher"): "Bloody handprints cover the door. Scratch marks show someone tried to escape.",
+        ("Front Door", "Ethereal Bride"): "Wedding flowers are nailed to the door. They're dead and wilted.",
+        ("Front Door", "The Librarian"): "'SILENCE' is carved into the wood in angry letters.",
+        ("Front Door", "Nightmare"): "The door leads to multiple places at once. Reality bends around it.",
+        ("Front Door", "The Collector"): "Locks and chains cover the door. No one leaves with the collection.",
+        ("Front Door", "The Burned Man"): "The door is on fire! No... wait... the flames aren't real. Are they?",
+        ("Front Door", "The Doll"): "A doll's eye peeks through the mail slot. It blinks.",
+        ("Front Door", "The Hanged Man"): "A shadow hangs from the door frame. It swings gently.",
+        ("Front Door", "The Mimic"): "You see yourself on the other side, trying to get in.",
+        ("Front Door", "The Nurse"): "'VISITING HOURS ARE OVER' is written in red on the door.",
+        
+        # Mirror messages
+        ("Bathroom Mirror", "Bonnie"): "A burned face stares back at you. It's not your reflection.",
+        ("Bathroom Mirror", "Poltergeist"): "The mirror cracks in a spider web pattern, then repairs itself!",
+        ("Bathroom Mirror", "Weeping Lady"): "A woman weeps in the reflection. Her tears flow down the real glass.",
+        ("Bathroom Mirror", "Shadow Stalker"): "Your reflection is gone. Only darkness stares back.",
+        ("Bathroom Mirror", "Little Timmy"): "A child waves at you in the mirror. You're alone in the room.",
+        ("Bathroom Mirror", "The Butcher"): "A cleaver appears in your reflection's hand. You're not holding anything.",
+        ("Bathroom Mirror", "Ethereal Bride"): "A bride in white appears behind you. When you turn, no one is there.",
+        ("Bathroom Mirror", "The Librarian"): "'QUIET!' is written backwards in the fog. It wasn't there before.",
+        ("Bathroom Mirror", "Nightmare"): "Your reflection shows your deepest fear. You can't look away.",
+        ("Bathroom Mirror", "The Collector"): "Faces of previous victims appear in the glass, trapped forever.",
+        ("Bathroom Mirror", "The Burned Man"): "The mirror melts and warps from intense heat. Your reflection burns.",
+        ("Bathroom Mirror", "The Doll"): "A porcelain face replaces your reflection. It smiles with cracked lips.",
+        ("Bathroom Mirror", "The Hanged Man"): "Your reflection has a noose around its neck. It's turning blue.",
+        ("Bathroom Mirror", "The Mimic"): "Your reflection moves independently. It's learning to be you.",
+        ("Bathroom Mirror", "The Nurse"): "A nurse appears behind you with a syringe. 'Time for medicine.'",
+        
+        # Bed messages
+        ("Bed", "Bonnie"): "The sheets are burned in the shape of a body. Smoke rises from the fabric.",
+        ("Bed", "Poltergeist"): "The bed levitates and drops! The mattress spins like it's possessed!",
+        ("Bed", "Weeping Lady"): "The pillows are soaked with tears. The sheets are cold and damp.",
+        ("Bed", "Shadow Stalker"): "Something is under the covers. The shape moves toward you.",
+        ("Bed", "Little Timmy"): "Toys are arranged on the pillow. A teddy bear watches you.",
+        ("Bed", "The Butcher"): "The mattress is slashed open. Stuffing spills out like entrails.",
+        ("Bed", "Ethereal Bride"): "Wedding dress fabric is woven into the sheets. It still smells of perfume.",
+        ("Bed", "The Librarian"): "Books are stacked neatly on the pillow. Don't disturb them.",
+        ("Bed", "Nightmare"): "The bed shows your worst sleeping fear. You'll never rest peacefully.",
+        ("Bed", "The Collector"): "Strange objects are hidden under the mattress. They weren't yours.",
+        ("Bed", "The Burned Man"): "The bed is smoldering. You can feel the heat from here.",
+        ("Bed", "The Doll"): "Dolls are arranged around the bed, watching. Their eyes follow you.",
+        ("Bed", "The Hanged Man"): "Rope marks are burned into the headboard. A noose hangs from the post.",
+        ("Bed", "The Mimic"): "Someone who looks exactly like you is sleeping in the bed.",
+        ("Bed", "The Nurse"): "Hospital restraints are attached to the bedframe. They're worn from use.",
+        
+        # Fireplace messages
+        ("Fireplace", "Bonnie"): "Blue flames dance without fuel. A figure writhes in the fire.",
+        ("Fireplace", "Poltergeist"): "Ashes explode outward! Soot covers everything in a violent burst!",
+        ("Fireplace", "Weeping Lady"): "The fireplace weeps water instead of producing heat. Ashes float in puddles.",
+        ("Fireplace", "Shadow Stalker"): "The fireplace is a portal to pure darkness. Cold emanates from within.",
+        ("Fireplace", "Little Timmy"): "A child's toys are arranged in the ashes. A ball rolls out on its own.",
+        ("Fireplace", "The Butcher"): "Bones are piled in the fireplace. They're not from animals.",
+        ("Fireplace", "Ethereal Bride"): "Wedding photos burn eternally in the flames. The faces are scratched out.",
+        ("Fireplace", "The Librarian"): "Burned books smolder in the hearth. The titles are all forbidden texts.",
+        ("Fireplace", "Nightmare"): "The fire shows your fears. Images flicker in the flames.",
+        ("Fireplace", "The Collector"): "Stolen treasures melt in the fire. Gold drips down the grate.",
+        ("Fireplace", "The Burned Man"): "The fire roars to life! A charred hand reaches out from the flames!",
+        ("Fireplace", "The Doll"): "Melted doll parts bubble in the flames. Their eyes are still intact.",
+        ("Fireplace", "The Hanged Man"): "Rope burns in the fire, filling the room with an acrid smell.",
+        ("Fireplace", "The Mimic"): "Your face appears in the flames, screaming silently.",
+        ("Fireplace", "The Nurse"): "Medical waste burns in the fireplace. The smell is antiseptic and wrong.",
+        
+        # Knife Block messages
+        ("Knife Block", "Bonnie"): "The knives are blackened and warped from heat. They still cut.",
+        ("Knife Block", "Poltergeist"): "The knives hover in the air, pointing at you! Then clatter down.",
+        ("Knife Block", "Weeping Lady"): "Rust (or is it blood?) drips from the knife handles. They weep metal tears.",
+        ("Knife Block", "Shadow Stalker"): "The largest knife is missing. You feel watched.",
+        ("Knife Block", "Little Timmy"): "Child-sized cuts are on the cutting board. 'I TRIED TO HELP' is carved.",
+        ("Knife Block", "The Butcher"): "EVERY knife is missing. You hear chopping sounds nearby. RUN.",
+        ("Knife Block", "Ethereal Bride"): "A wedding cake knife appears. It's covered in decades-old icing... and blood.",
+        ("Knife Block", "The Librarian"): "Paper cuts appear on your hands just from looking. The knives are razor-sharp.",
+        ("Knife Block", "Nightmare"): "The knives reflect your deepest fears. Each blade shows a different terror.",
+        ("Knife Block", "The Collector"): "Antique knives from various eras fill the block. Each has a history.",
+        ("Knife Block", "The Burned Man"): "The knife handles are too hot to touch. Metal glows orange.",
+        ("Knife Block", "The Doll"): "Tiny knife marks cover the block. Like someone was making doll furniture.",
+        ("Knife Block", "The Hanged Man"): "One knife has a rope wrapped around its handle. It swings gently.",
+        ("Knife Block", "The Mimic"): "Your fingerprints are on every knife. But you never touched them.",
+        ("Knife Block", "The Nurse"): "The knives have been 'sterilized.' Surgical tape wraps each handle.",
+        
+        # Portrait messages
+        ("Portrait", "Bonnie"): "The painted face is burned beyond recognition. Eyes still watch.",
+        ("Portrait", "Poltergeist"): "The portrait spins on the wall! The faces blur into screams!",
+        ("Portrait", "Weeping Lady"): "The painted woman cries real tears. They pool on the floor.",
+        ("Portrait", "Shadow Stalker"): "The background of the portrait is pure darkness. Figures lurk within.",
+        ("Portrait", "Little Timmy"): "A child appears in the portrait that wasn't there before. He waves.",
+        ("Portrait", "The Butcher"): "The family in the portrait has been 'butchered.' Red paint drips.",
+        ("Portrait", "Ethereal Bride"): "A bride appears in the portrait. She's waiting at the altar alone.",
+        ("Portrait", "The Librarian"): "The subjects in the portrait hold their fingers to their lips. Shhhh.",
+        ("Portrait", "Nightmare"): "The portrait shows something different every time you look.",
+        ("Portrait", "The Collector"): "Multiple portraits are stacked inside the frame. Collected faces.",
+        ("Portrait", "The Burned Man"): "The canvas is charred. The painted eyes glow like embers.",
+        ("Portrait", "The Doll"): "The subjects are replaced with porcelain dolls. They're arranged like a family.",
+        ("Portrait", "The Hanged Man"): "All the subjects in the portrait are hanging. Their feet dangle.",
+        ("Portrait", "The Mimic"): "Your face is painted over everyone in the portrait.",
+        ("Portrait", "The Nurse"): "The subjects wear hospital gowns. Their wristbands are visible.",
+        
+        # Bathtub messages
+        ("Bathtub", "Bonnie"): "Steam rises from the empty tub. The porcelain is heat-cracked.",
+        ("Bathtub", "Poltergeist"): "Water explodes from the tub! It sloshes violently without stopping!",
+        ("Bathtub", "Weeping Lady"): "The tub is filled with tears. A figure floats face-down in the water.",
+        ("Bathtub", "Shadow Stalker"): "The water is black as ink. Something moves beneath the surface.",
+        ("Bathtub", "Little Timmy"): "Rubber ducks float in the tub. They follow you with their eyes.",
+        ("Bathtub", "The Butcher"): "The water is thick and red. You don't want to know what's in there.",
+        ("Bathtub", "Ethereal Bride"): "A wedding dress floats in the water. It's stained with something dark.",
+        ("Bathtub", "The Librarian"): "Waterlogged books float in the tub. The words bleed off the pages.",
+        ("Bathtub", "Nightmare"): "Your drowned face stares up from the water. But you're not in the tub.",
+        ("Bathtub", "The Collector"): "The tub is filled with stolen jewelry and trinkets, submerged in murky water.",
+        ("Bathtub", "The Burned Man"): "The water is boiling hot! Steam fills the room!",
+        ("Bathtub", "The Doll"): "Porcelain doll parts float in the water. Heads, hands, eyes...",
+        ("Bathtub", "The Hanged Man"): "A rope trails from the tub to the ceiling. The water is still.",
+        ("Bathtub", "The Mimic"): "You see yourself drowning in the tub. It's happening now.",
+        ("Bathtub", "The Nurse"): "The tub is filled with medical equipment. 'HYDROTHERAPY' is written on the wall.",
+        
+        # Wardrobe messages
+        ("Wardrobe", "Bonnie"): "Smoke seeps from the wardrobe cracks. Something burned inside.",
+        ("Wardrobe", "Poltergeist"): "The doors burst open! Clothes fly out like escaping spirits!",
+        ("Wardrobe", "Weeping Lady"): "Damp clothes hang inside. They smell of river water and sorrow.",
+        ("Wardrobe", "Shadow Stalker"): "The wardrobe contains only darkness. It seems infinitely deep.",
+        ("Wardrobe", "Little Timmy"): "Child's clothes appear among the adult clothing. They're from the 1950s.",
+        ("Wardrobe", "The Butcher"): "Butcher's aprons hang inside. They're stained with old blood.",
+        ("Wardrobe", "Ethereal Bride"): "A wedding dress hangs alone. It moves without wind.",
+        ("Wardrobe", "The Librarian"): "The clothes are arranged by color and size. Perfectly. Obsessively.",
+        ("Wardrobe", "Nightmare"): "The clothes inside belong to everyone you've ever feared.",
+        ("Wardrobe", "The Collector"): "Hundreds of different outfits are crammed inside. From different eras.",
+        ("Wardrobe", "The Burned Man"): "The clothes inside are all burned. Ashes fall when you touch them.",
+        ("Wardrobe", "The Doll"): "Doll-sized clothes hang on tiny hangers. Hundreds of them.",
+        ("Wardrobe", "The Hanged Man"): "Empty nooses hang among the clothes. Waiting.",
+        ("Wardrobe", "The Mimic"): "All the clothes are exactly your size. Your style. Your life.",
+        ("Wardrobe", "The Nurse"): "Hospital gowns hang in neat rows. Patient numbers are written on tags.",
+        
+        # Coat Rack messages
+        ("Coat Rack", "Bonnie"): "The coats are scorched. A burned hand pokes from one sleeve.",
+        ("Coat Rack", "Poltergeist"): "Coats fly off the rack and dance around the room!",
+        ("Coat Rack", "Weeping Lady"): "The coats drip with water. Puddles form beneath them.",
+        ("Coat Rack", "Shadow Stalker"): "A coat moves on its own. Someone invisible is wearing it.",
+        ("Coat Rack", "Little Timmy"): "A child's jacket appears on the rack. It's well-worn and loved.",
+        ("Coat Rack", "The Butcher"): "A butcher's coat hangs on the rack. It's covered in old stains.",
+        ("Coat Rack", "Ethereal Bride"): "A veil hangs on the rack. It sways like someone just walked past.",
+        ("Coat Rack", "The Librarian"): "A moth-eaten cardigan appears. It smells of old books.",
+        ("Coat Rack", "Nightmare"): "The coats have no owners. They belonged to people who are gone.",
+        ("Coat Rack", "The Collector"): "Dozens of coats are crammed on the rack. None of them match.",
+        ("Coat Rack", "The Burned Man"): "The coats smolder gently. Smoke rises from the fabric.",
+        ("Coat Rack", "The Doll"): "A tiny doll coat hangs among the full-sized ones. It moves.",
+        ("Coat Rack", "The Hanged Man"): "The coat rack looks like a gallows. Coats hang like bodies.",
+        ("Coat Rack", "The Mimic"): "Your favorite coat is here. But you never brought it.",
+        ("Coat Rack", "The Nurse"): "A nurse's cape hangs on the rack. It's from another century.",
+        
+        # Stove messages
+        ("Stove", "Bonnie"): "The burners glow with supernatural heat. Blue flames dance without gas.",
+        ("Stove", "Poltergeist"): "Pots and pans fly off the stove! The burners click on and off rapidly!",
+        ("Stove", "Weeping Lady"): "Water boils over endlessly from empty pots. The steam forms crying faces.",
+        ("Stove", "Shadow Stalker"): "The stove produces only darkness. Cold shadows leak from the burners.",
+        ("Stove", "Little Timmy"): "Tiny handprints cover the stovetop. A child's drawing is burned into the metal.",
+        ("Stove", "The Butcher"): "The stove is covered in char and grease. Something was cooked here. Something wrong.",
+        ("Stove", "Ethereal Bride"): "A wedding cake burns eternally on the stove. The smell of burnt sugar fills the air.",
+        ("Stove", "The Librarian"): "Recipe books burn on the stove. The pages turn themselves.",
+        ("Stove", "Nightmare"): "The stove shows you burning alive. The flames reach for you.",
+        ("Stove", "The Collector"): "Melted jewelry drips from the burners. Gold and silver pool below.",
+        ("Stove", "The Burned Man"): "The stove ROARS with fire! Flames lick the ceiling! Is this real?!",
+        ("Stove", "The Doll"): "Tiny porcelain hands reach from the oven. They're waving.",
+        ("Stove", "The Hanged Man"): "Rope burns in the flames. The smoke carries the smell of death.",
+        ("Stove", "The Mimic"): "You see yourself cooking at the stove. But you're standing here.",
+        ("Stove", "The Nurse"): "Syringes boil in a pot on the stove. 'STERILIZATION' is labeled.",
+        
+        # Refrigerator messages
+        ("Refrigerator", "Bonnie"): "The fridge is unnaturally hot. Frost evaporates from inside.",
+        ("Refrigerator", "Poltergeist"): "The fridge door slams open and shut! Contents fly out violently!",
+        ("Refrigerator", "Weeping Lady"): "Water pools beneath the fridge. Inside, everything is waterlogged.",
+        ("Refrigerator", "Shadow Stalker"): "Opening the fridge reveals only endless darkness. The light doesn't work.",
+        ("Refrigerator", "Little Timmy"): "Child's drawings are stuck to the fridge with blood-red magnets.",
+        ("Refrigerator", "The Butcher"): "The fridge is full of meat. Too much meat. It's not all from animals.",
+        ("Refrigerator", "Ethereal Bride"): "A wedding cake sits inside, decades old but perfectly preserved.",
+        ("Refrigerator", "The Librarian"): "Books are stored in the fridge to preserve them. They're all overdue.",
+        ("Refrigerator", "Nightmare"): "Inside the fridge, you see your own severed head staring back.",
+        ("Refrigerator", "The Collector"): "The fridge is stuffed with jars. Each contains something different. Something wrong.",
+        ("Refrigerator", "The Burned Man"): "The fridge is hot to the touch. Inside, everything is charred.",
+        ("Refrigerator", "The Doll"): "Doll parts are arranged neatly on each shelf. All staring out.",
+        ("Refrigerator", "The Hanged Man"): "Rope coils fill the fridge. Each one is tied in a noose.",
+        ("Refrigerator", "The Mimic"): "Photos of you are stuck to every surface inside. You didn't put them there.",
+        ("Refrigerator", "The Nurse"): "Blood bags and organ containers fill the fridge. 'TRANSPLANT' labels everywhere.",
+        
+        # Bookshelf messages
+        ("Bookshelf", "Bonnie"): "The books are singed. One is titled 'HOW I DIED IN THE FIRE.'",
+        ("Bookshelf", "Poltergeist"): "Books fly off the shelf! Pages tear and flutter like angry birds!",
+        ("Bookshelf", "Weeping Lady"): "The books are waterlogged and ruined. Ink tears stream down the spines.",
+        ("Bookshelf", "Shadow Stalker"): "A dark gap appears between books. Something moves in the darkness.",
+        ("Bookshelf", "Little Timmy"): "Children's books appear. 'GOODBYE MOMMY' is written inside each one.",
+        ("Bookshelf", "The Butcher"): "Cookbooks with disturbing titles: 'TO SERVE MAN', 'LONG PIG RECIPES'.",
+        ("Bookshelf", "Ethereal Bride"): "Wedding planners and romance novels fill the shelf. All underlined passages about betrayal.",
+        ("Bookshelf", "The Librarian"): "Every book opens to the same page: 'OVERDUE. PENALTY: DEATH.'",
+        ("Bookshelf", "Nightmare"): "The books contain your diary entries. Secrets you've never written.",
+        ("Bookshelf", "The Collector"): "First editions, rare manuscripts, stolen texts. All catalogued obsessively.",
+        ("Bookshelf", "The Burned Man"): "The books smolder. Titles are burned away but you can feel them watching.",
+        ("Bookshelf", "The Doll"): "Tiny books for dolls are mixed with regular ones. The titles are disturbing.",
+        ("Bookshelf", "The Hanged Man"): "Every book is about death by hanging. Historical, fictional, instructional.",
+        ("Bookshelf", "The Mimic"): "Every book is about you. Your life story, written before you lived it.",
+        ("Bookshelf", "The Nurse"): "Medical textbooks. Lobotomy, experimental surgery, patient zero.",
+        
+        # Old Sofa messages
+        ("Old Sofa", "Bonnie"): "The cushions are scorched in a sitting pattern. Someone burned here.",
+        ("Old Sofa", "Poltergeist"): "The sofa levitates and drops! Cushions explode with stuffing!",
+        ("Old Sofa", "Weeping Lady"): "The sofa is soaked with tears. Sitting here makes you inexplicably sad.",
+        ("Old Sofa", "Shadow Stalker"): "Someone is sitting on the sofa. You can see the indent. But no one is there.",
+        ("Old Sofa", "Little Timmy"): "Toys are tucked between the cushions. A child's blanket is draped over the arm.",
+        ("Old Sofa", "The Butcher"): "Dark stains soak through the fabric. The cushions squish wetly.",
+        ("Old Sofa", "Ethereal Bride"): "A bride's bouquet rests on the cushions. The flowers are dead but arranged perfectly.",
+        ("Old Sofa", "The Librarian"): "Books are stacked on every surface. Sitting here would damage them.",
+        ("Old Sofa", "Nightmare"): "The sofa's pattern forms faces. They're screaming.",
+        ("Old Sofa", "The Collector"): "Trinkets are stuffed in every crevice. Someone hoards here.",
+        ("Old Sofa", "The Burned Man"): "The sofa smolders. Smoke rises from the fabric.",
+        ("Old Sofa", "The Doll"): "Dolls are arranged sitting on the sofa. Having a tea party. They turn to watch you.",
+        ("Old Sofa", "The Hanged Man"): "Rope marks are worn into the armrests. Like someone was tied here.",
+        ("Old Sofa", "The Mimic"): "An indent shows someone your exact size was just sitting here.",
+        ("Old Sofa", "The Nurse"): "A hospital gown is draped over the arm. A patient bracelet is on the cushion.",
+        
+        # Nightstand messages  
+        ("Nightstand", "Bonnie"): "The diary entries describe a fire. The last page says 'IT'S SPREADING.'",
+        ("Nightstand", "Poltergeist"): "The drawer flies open! Contents scatter everywhere!",
+        ("Nightstand", "Weeping Lady"): "The diary is soaked with tears. The ink has run, but you can read 'WHY?'",
+        ("Nightstand", "Shadow Stalker"): "The drawer contains only darkness. Your hand goes in further than possible.",
+        ("Nightstand", "Little Timmy"): "A child's drawing is in the drawer. It shows a family. One member is crossed out.",
+        ("Nightstand", "The Butcher"): "A cleaver is hidden in the drawer. It's well-used.",
+        ("Nightstand", "Ethereal Bride"): "Wedding rings are scattered in the drawer. Dozens of them.",
+        ("Nightstand", "The Librarian"): "Library cards fill the drawer. All are overdue by decades.",
+        ("Nightstand", "Nightmare"): "The drawer contains photos of you sleeping. Taken from inside the room.",
+        ("Nightstand", "The Collector"): "The drawer won't close. It's stuffed with random objects.",
+        ("Nightstand", "The Burned Man"): "The drawer is ash. Everything inside has been incinerated.",
+        ("Nightstand", "The Doll"): "A doll is tucked into the drawer like a bed. It blinks at you.",
+        ("Nightstand", "The Hanged Man"): "Suicide notes fill the drawer. Different handwriting. Different dates.",
+        ("Nightstand", "The Mimic"): "The diary is yours. But you didn't write these entries.",
+        ("Nightstand", "The Nurse"): "Medication bottles fill the drawer. All are empty. All are yours.",
+        
+        # Medicine Cabinet messages
+        ("Medicine Cabinet", "Bonnie"): "The mirror is cracked from heat. Burn cream fills every shelf.",
+        ("Medicine Cabinet", "Poltergeist"): "Pills explode from bottles! Everything flies off the shelves!",
+        ("Medicine Cabinet", "Weeping Lady"): "The bottles are filled with tears. Labels read 'FOR SORROW.'",
+        ("Medicine Cabinet", "Shadow Stalker"): "The cabinet is empty. Just darkness. Something moves inside.",
+        ("Medicine Cabinet", "Little Timmy"): "Children's vitamins spell out 'HELP ME' on the shelf.",
+        ("Medicine Cabinet", "The Butcher"): "Surgical tools replace the medicine. They're recently used.",
+        ("Medicine Cabinet", "Ethereal Bride"): "Wedding makeup fills the cabinet. Lipstick writes 'HE LEFT ME' on the mirror.",
+        ("Medicine Cabinet", "The Librarian"): "Books are crammed in the medicine cabinet. No medicine remains.",
+        ("Medicine Cabinet", "Nightmare"): "All the bottles are labeled with your name. 'TAKE UNTIL DEAD.'",
+        ("Medicine Cabinet", "The Collector"): "Pills of every color and type. Collected from unknown sources.",
+        ("Medicine Cabinet", "The Burned Man"): "Everything is melted together. The smell of chemicals burns.",
+        ("Medicine Cabinet", "The Doll"): "Doll medicine bottles. 'FOR DOLLY' labels. Tiny syringes.",
+        ("Medicine Cabinet", "The Hanged Man"): "Rope burn cream. Neck braces. Autopsy reports.",
+        ("Medicine Cabinet", "The Mimic"): "Your prescriptions. Your dosages. But you don't take medication.",
+        ("Medicine Cabinet", "The Nurse"): "The cabinet is organized perfectly. 'NURSE BRADLEY'S SUPPLY.'",
+        
+        # Dining Table messages
+        ("Dining Table", "Bonnie"): "Scorch marks show where someone sat. Place settings are charred.",
+        ("Dining Table", "Poltergeist"): "Plates and silverware fly across the room! The table flips!",
+        ("Dining Table", "Weeping Lady"): "The table is set for a dinner that never happened. Soup bowls hold only tears.",
+        ("Dining Table", "Shadow Stalker"): "Shadow figures sit at each chair. They watch you.",
+        ("Dining Table", "Little Timmy"): "A child's place setting appears. A high chair materializes.",
+        ("Dining Table", "The Butcher"): "The table is a butcher's block. Cleaver marks score the surface.",
+        ("Dining Table", "Ethereal Bride"): "Wedding feast is set but rotted. Place cards read 'BRIDE' and 'GROOM (ABSENT).'",
+        ("Dining Table", "The Librarian"): "Books are stacked as place settings. Eating here is forbidden.",
+        ("Dining Table", "Nightmare"): "The food shows your fears. Your dead grandmother serves dinner.",
+        ("Dining Table", "The Collector"): "Every piece of silverware is different. Stolen from different homes.",
+        ("Dining Table", "The Burned Man"): "The table is on fire! No wait... the flames are memories.",
+        ("Dining Table", "The Doll"): "Dolls are seated at each chair. The table is set for their tea party.",
+        ("Dining Table", "The Hanged Man"): "A noose hangs above each chair. The centerpiece is rope.",
+        ("Dining Table", "The Mimic"): "Photos of you are the place cards. Your face at every seat.",
+        ("Dining Table", "The Nurse"): "Hospital trays instead of plates. 'PATIENT DIET' labels on each.",
+        
+        # Toilet messages
+        ("Toilet", "Bonnie"): "Steam rises from the bowl. The water is scalding hot.",
+        ("Toilet", "Poltergeist"): "The lid slams up and down! Water sprays everywhere!",
+        ("Toilet", "Weeping Lady"): "The bowl overflows with tears. It never stops filling.",
+        ("Toilet", "Shadow Stalker"): "The bowl is filled with darkness. It seems to go down forever.",
+        ("Toilet", "Little Timmy"): "A toy boat floats in the bowl. It sails in circles.",
+        ("Toilet", "The Butcher"): "The water is thick and red. Something clogs the drain.",
+        ("Toilet", "Ethereal Bride"): "Wedding rings fill the bowl. Thrown away in anger.",
+        ("Toilet", "The Librarian"): "Torn book pages float in the bowl. 'BANNED' is watermarked on each.",
+        ("Toilet", "Nightmare"): "Your face stares up from the water. It's drowning.",
+        ("Toilet", "The Collector"): "Coins fill the bowl. Thrown in like a wishing well.",
+        ("Toilet", "The Burned Man"): "The water boils. Steam scalds the air.",
+        ("Toilet", "The Doll"): "Doll heads bob in the water. Their eyes are open.",
+        ("Toilet", "The Hanged Man"): "Rope spirals down into the drain. It's attached to something below.",
+        ("Toilet", "The Mimic"): "Your reflection ripples in the water. It doesn't match your movements.",
+        ("Toilet", "The Nurse"): "Medical waste floats in the bowl. 'BIOHAZARD' warnings everywhere.",
+        
+        # Window messages  
+        ("Window", "Bonnie"): "The glass is cracked from heat. Outside, you see flames that aren't there.",
+        ("Window", "Poltergeist"): "The window slams open and shut! The glass cracks then repairs!",
+        ("Window", "Weeping Lady"): "Rain streams down the inside of the glass. But it's not raining.",
+        ("Window", "Shadow Stalker"): "The window shows only darkness. Day or night, it's always black outside.",
+        ("Window", "Little Timmy"): "A child waves from outside the window. You're on the second floor.",
+        ("Window", "The Butcher"): "Bloody handprints cover the glass. From the outside.",
+        ("Window", "Ethereal Bride"): "A bride stands outside, staring in. She's been waiting for decades.",
+        ("Window", "The Librarian"): "'SILENCE' is written in the frost. The letters appear on their own.",
+        ("Window", "Nightmare"): "The window shows your fears. Whatever you're most afraid of, it's out there.",
+        ("Window", "The Collector"): "Items are displayed on the windowsill. They weren't there before.",
+        ("Window", "The Burned Man"): "The window is too hot to touch. Smoke fills the view.",
+        ("Window", "The Doll"): "Dolls are pressed against the glass from outside. Watching.",
+        ("Window", "The Hanged Man"): "A silhouette hangs outside the window. It swings gently.",
+        ("Window", "The Mimic"): "You see yourself standing outside, trying to get in.",
+        ("Window", "The Nurse"): "The window shows a hospital room. It's yours. You're in the bed.",
+    }
+    
     def __init__(self, name, rect, description, interaction_type, zoom_description=None, 
                  ghost_descriptions=None, affected_descriptions=None):
         self.name = name
@@ -27,12 +353,14 @@ class InteractiveObject:
         # NEW: Track if ghost has affected this object
         self.ghost_affected = False
         self.affected_by_behavior = None  # Which behavior affected it
+        self.affected_by_ghost = None  # Which ghost affected it
         self.affect_timer = 0  # How long the effect lasts
         
-    def apply_ghost_effect(self, behavior):
+    def apply_ghost_effect(self, behavior, ghost_name=None):
         """Apply a ghost behavior effect to this object"""
         self.ghost_affected = True
         self.affected_by_behavior = behavior
+        self.affected_by_ghost = ghost_name
         self.affect_timer = 30.0  # Effect lasts 30 seconds
         
     def update(self, dt):
@@ -42,14 +370,24 @@ class InteractiveObject:
             if self.affect_timer <= 0:
                 self.ghost_affected = False
                 self.affected_by_behavior = None
+                self.affected_by_ghost = None
         
     def get_description(self, ghost=None, flashlight_on=False):
         """Get the appropriate description based on state"""
         # If ghost affected this object, show affected description
-        if self.ghost_affected and self.affected_by_behavior:
-            if self.affected_by_behavior in self.affected_descriptions:
+        if self.ghost_affected:
+            # Check for unique ghost+object message first
+            ghost_name = self.affected_by_ghost
+            if ghost_name:
+                key = (self.name, ghost_name)
+                if key in self.GHOST_OBJECT_MESSAGES:
+                    return self.GHOST_OBJECT_MESSAGES[key]
+            
+            # Then check for behavior-specific description
+            if self.affected_by_behavior and self.affected_by_behavior in self.affected_descriptions:
                 return self.affected_descriptions[self.affected_by_behavior]
-            # Generic affected descriptions based on behavior type
+            
+            # Finally use generic affected description
             return self._get_generic_affected_description()
         
         # If using flashlight and ghost-specific description exists
@@ -61,6 +399,8 @@ class InteractiveObject:
     def _get_generic_affected_description(self):
         """Get a generic description based on the behavior that affected it"""
         behavior = self.affected_by_behavior
+        if not behavior:
+            return f"Something is wrong with the {self.name}. It feels... different."
         if 'cold' in behavior:
             return f"The {self.name} is ice cold to the touch. Frost covers its surface."
         elif 'throw' in behavior or 'move' in behavior or 'float' in behavior:
@@ -141,13 +481,13 @@ class Room:
                 return obj
         return None
     
-    def apply_ghost_behavior_to_object(self, behavior):
+    def apply_ghost_behavior_to_object(self, behavior, ghost_name=None):
         """Apply a ghost behavior to a random object in this room"""
         if not self.objects:
             return None
         # Pick a random object
         obj = random.choice(self.objects)
-        obj.apply_ghost_effect(behavior)
+        obj.apply_ghost_effect(behavior, ghost_name)
         return obj
     
     def get_affected_objects(self):

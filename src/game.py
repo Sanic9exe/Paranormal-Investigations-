@@ -454,7 +454,12 @@ class Game:
         elif self.state == STATE_GHOST_BOOK and self.ghost_book:
             self.ghost_book.scroll_offset += amount
         elif self.state == STATE_JUMPSCARE_GALLERY:
-            self.gallery_scroll = max(0, self.gallery_scroll + amount)
+            # Calculate max scroll based on content
+            card_height = 250
+            cards_per_row = 4
+            total_rows = (len(self.all_ghosts) + cards_per_row - 1) // cards_per_row
+            max_scroll = max(0, (total_rows * (card_height + 20)) - (SCREEN_HEIGHT - 150))
+            self.gallery_scroll = max(0, min(max_scroll, self.gallery_scroll + amount))
     
     def handle_gallery_click(self, pos):
         """Handle click in jumpscare gallery"""
@@ -791,7 +796,7 @@ class Game:
         
         # NEW: Apply behavior to a random object in the current room
         if self.current_room and random.random() < 0.7:  # 70% chance to affect an object
-            affected_obj = self.current_room.apply_ghost_behavior_to_object(behavior)
+            affected_obj = self.current_room.apply_ghost_behavior_to_object(behavior, self.haunting_ghost.name)
             if affected_obj:
                 self.notebook.add_note(f"The {affected_obj.name} was affected by something!")
         
