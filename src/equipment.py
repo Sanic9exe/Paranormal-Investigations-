@@ -46,7 +46,7 @@ class Flashlight(Equipment):
         
         if self.active:
             # Drain battery faster when ghost is nearby
-            drain_multiplier = 2.0 if ghost_nearby else 1.0
+            drain_multiplier = FLASHLIGHT_GHOST_DRAIN_MULTIPLIER if ghost_nearby else 1.0
             self.battery -= FLASHLIGHT_DRAIN_RATE * dt * drain_multiplier
             self.battery = max(0, self.battery)
             
@@ -112,6 +112,7 @@ class EMFReader(Equipment):
         self.level = 0
         self.spike_timer = 0
         self.base_level = 0
+        self.false_positive_timer = 0
         
     def update(self, dt, ghost_nearby=False, ghost_distance=100, ghost=None):
         super().update(dt, ghost_nearby, ghost_distance, ghost)
@@ -120,8 +121,17 @@ class EMFReader(Equipment):
             # Base EMF noise
             self.base_level = random.randint(0, 1)
             
+            # False positive timer decay
+            if self.false_positive_timer > 0:
+                self.false_positive_timer -= dt
+            
+            # Random false positives (balance change)
+            if not ghost_nearby and random.random() < EMF_FALSE_POSITIVE_CHANCE * dt:
+                self.false_positive_timer = 0.8
+                self.level = random.randint(2, 4)  # False spike
+            
             # Ghost proximity affects reading
-            if ghost_nearby and ghost_distance < 300:
+            elif ghost_nearby and ghost_distance < 300:
                 # Closer = higher reading
                 proximity_factor = 1 - (ghost_distance / 300)
                 ghost_level = int(EMF_LEVEL_5 * proximity_factor)
@@ -131,7 +141,7 @@ class EMFReader(Equipment):
                 if random.random() < 0.05:
                     self.spike_timer = 0.5
                     self.level = EMF_LEVEL_5
-            else:
+            elif self.false_positive_timer <= 0:
                 self.level = self.base_level
                 
             # Handle spike decay
@@ -193,9 +203,9 @@ class Thermometer(Equipment):
                 # Return to normal
                 self.target_temp = random.uniform(TEMP_NORMAL_MIN, TEMP_NORMAL_MAX)
                 
-            # Gradually move toward target
+            # Gradually move toward target - slower response (balance change)
             diff = self.target_temp - self.temperature
-            self.temperature += diff * dt * 2
+            self.temperature += diff * dt * TEMP_CHANGE_SPEED
             
             # Add some noise
             self.temperature += random.uniform(-0.5, 0.5)
@@ -257,6 +267,7 @@ class SpiritBox(Equipment):
         self.response_timer = 0
         self.static_offset = 0
         self.scan_frequency = 0
+        self.response_cooldown = 0  # Cooldown between responses
         
     def update(self, dt, ghost_nearby=False, ghost_distance=100, ghost=None):
         super().update(dt, ghost_nearby, ghost_distance, ghost)
@@ -272,11 +283,16 @@ class SpiritBox(Equipment):
             else:
                 self.response = None
                 
-            # Random ghost responses
-            if ghost_nearby and ghost_distance < 250:
+            # Response cooldown (balance change)
+            if self.response_cooldown > 0:
+                self.response_cooldown -= dt
+                
+            # Random ghost responses - with cooldown
+            if ghost_nearby and ghost_distance < 250 and self.response_cooldown <= 0:
                 if random.random() < 0.01:  # 1% chance per frame when close
                     self.response = random.choice(self.RESPONSES)
                     self.response_timer = 2.0
+                    self.response_cooldown = SPIRIT_BOX_RESPONSE_COOLDOWN  # 5s cooldown
         else:
             self.scanning = False
             self.response = None
@@ -375,7 +391,7 @@ class UVLight(Equipment):
 class EquipmentManager:
     """Manages all ghost hunting equipment"""
     
-    def __init__(self):
+    def __init__(self, equipment_slots=2):
         self.flashlight = Flashlight()
         self.emf_reader = EMFReader()
         self.thermometer = Thermometer()
@@ -393,6 +409,41 @@ class EquipmentManager:
         self.active_equipment = self.flashlight
         self.current_index = 0
         
+        # Equipment slot limit (balance change)
+        self.equipment_slots = equipment_slots
+        self.equipped_items = [self.flashlight]  # Start with flashlight equipped
+        
+    def set_equipment_slots(self, slots):
+        """Set the number of equipment slots allowed"""
+        self.equipment_slots = slots
+        # Trim equipped items if needed
+        while len(self.equipped_items) > slots:
+            removed = self.equipped_items.pop()
+            removed.active = False
+            
+    def can_equip(self, equipment):
+        """Check if equipment can be equipped"""
+        if equipment in self.equipped_items:
+            return True
+        return len(self.equipped_items) < self.equipment_slots
+        
+    def equip_item(self, equipment):
+        """Equip an item if there's room"""
+        if equipment in self.equipped_items:
+            return True
+        if len(self.equipped_items) < self.equipment_slots:
+            self.equipped_items.append(equipment)
+            return True
+        return False
+        
+    def unequip_item(self, equipment):
+        """Unequip an item"""
+        if equipment in self.equipped_items:
+            equipment.active = False
+            self.equipped_items.remove(equipment)
+            return True
+        return False
+        
     def switch_equipment(self, direction=1):
         """Switch to next/previous equipment"""
         self.current_index = (self.current_index + direction) % len(self.all_equipment)
@@ -400,7 +451,25 @@ class EquipmentManager:
         
     def toggle_current(self):
         """Toggle current equipment on/off"""
-        self.active_equipment.active = not self.active_equipment.active
+        equip = self.active_equipment
+        
+        if equip.active:
+            # Turn off
+            equip.active = False
+        else:
+            # Check if we can equip it
+            if self.can_equip(equip):
+                self.equip_item(equip)
+                equip.active = True
+            # If we can't, we need to swap - turn off oldest equipped item
+            elif len(self.equipped_items) >= self.equipment_slots:
+                # Find an active item to swap out
+                for old_equip in self.equipped_items:
+                    if old_equip != self.flashlight:  # Never auto-unequip flashlight
+                        self.unequip_item(old_equip)
+                        self.equip_item(equip)
+                        equip.active = True
+                        break
         
     def update(self, dt, ghost_nearby, ghost_distance, ghost=None):
         """Update all equipment"""
@@ -420,18 +489,30 @@ class EquipmentManager:
         surface.blit(bg, (x, y))
         pygame.draw.rect(surface, GRAY, (x, y, bar_width, bar_height), 2)
         
+        # Equipment slots indicator
+        slots_text = font.render(f"Slots: {len(self.equipped_items)}/{self.equipment_slots}", True, YELLOW)
+        surface.blit(slots_text, (x + 5, y - 35))
+        
         # Equipment slots
         slot_width = bar_width // len(self.all_equipment)
         for i, equip in enumerate(self.all_equipment):
             slot_x = x + i * slot_width
             
-            # Highlight active
+            # Highlight active selection
             if equip == self.active_equipment:
                 pygame.draw.rect(surface, (80, 80, 100), 
                                (slot_x, y, slot_width, bar_height))
                                
-            # Equipment icon
-            color = GREEN if equip.active else WHITE
+            # Equipment icon - color based on equipped status
+            if equip.active:
+                color = GREEN
+            elif equip in self.equipped_items:
+                color = YELLOW  # Equipped but not active
+            elif self.can_equip(equip):
+                color = WHITE  # Can be equipped
+            else:
+                color = DARK_GRAY  # Cannot equip (slots full)
+                
             icon = font.render(equip.icon_char, True, color)
             surface.blit(icon, (slot_x + slot_width // 2 - icon.get_width() // 2, y + 5))
             

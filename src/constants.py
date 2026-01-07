@@ -58,30 +58,34 @@ DIFFICULTY_SETTINGS = {
     DIFFICULTY_EASY: {
         "name": "Easy",
         "guesses": 3,
-        "time_multiplier": 1.5,
+        "time_multiplier": 1.3,  # Reduced from 1.5
         "aggression_rate": 0.5,
-        "grace_period": (30, 50),
+        "grace_period": (20, 35),  # Reduced from (30, 50)
+        "equipment_slots": 2,  # Can carry 2 equipment
     },
     DIFFICULTY_NORMAL: {
         "name": "Normal",
         "guesses": 2,
         "time_multiplier": 1.0,
         "aggression_rate": 1.0,
-        "grace_period": (20, 40),
+        "grace_period": (15, 25),  # Reduced from (20, 40)
+        "equipment_slots": 2,  # Can carry 2 equipment
     },
     DIFFICULTY_HARD: {
         "name": "Hard",
         "guesses": 1,
-        "time_multiplier": 0.7,
+        "time_multiplier": 0.65,  # Reduced from 0.7
         "aggression_rate": 1.5,
-        "grace_period": (10, 30),
+        "grace_period": (10, 20),  # Unchanged
+        "equipment_slots": 1,  # Can only carry 1 equipment
     },
     DIFFICULTY_NIGHTMARE: {
         "name": "Nightmare",
         "guesses": 1,
-        "time_multiplier": 0.5,
+        "time_multiplier": 0.45,  # Reduced from 0.5
         "aggression_rate": 2.0,
-        "grace_period": (10, 20),
+        "grace_period": (5, 15),  # Reduced lower bound
+        "equipment_slots": 1,  # Can only carry 1 equipment
     },
 }
 
@@ -109,12 +113,35 @@ JUMPSCARE_FLASH_PROBABILITY = 0.7
 JUMPSCARE_DURATION = 3.0
 
 # Ghost behavior settings
-BEHAVIOR_MIN_INTERVAL = 5
-BEHAVIOR_MAX_INTERVAL = 30
-BEHAVIOR_AGGRESSION_FACTOR = 25
+BEHAVIOR_MIN_INTERVAL = 8  # Increased from 5 - slower behaviors
+BEHAVIOR_MAX_INTERVAL = 35  # Increased from 30
+BEHAVIOR_AGGRESSION_FACTOR = 30  # Increased from 25 - slower scaling
 BEHAVIOR_MIN_DURATION = 2.0
 BEHAVIOR_MAX_DURATION = 5.0
 MAX_ACTIVE_EFFECTS = 5
+
+# Ghost hint balance
+GHOST_HINT_BASE_CHANCE = 0.0008  # Reduced from 0.005 (~0.5 hints per minute)
+GHOST_HINT_AGGRESSION_MULTIPLIER = 2.0  # More hints when aggressive
+
+# Evidence collection balance
+EVIDENCE_CHANCE_EXAMINE = 0.15  # 15% on regular examine
+EVIDENCE_CHANCE_ZOOM = 0.25  # 25% on zoom (more thorough)
+EVIDENCE_CHANCE_AFFECTED = 0.40  # 40% if ghost affected this object
+EVIDENCE_CHANCE_EQUIPMENT = 0.20  # 20% additional with relevant equipment
+
+# Wrong guess penalties
+WRONG_GUESS_AGGRESSION_1 = 0.15  # First wrong guess
+WRONG_GUESS_AGGRESSION_2 = 0.3  # Second wrong guess
+WRONG_GUESS_BLIND_1 = 1.5  # Blind duration for first wrong
+WRONG_GUESS_BLIND_2 = 2.5  # Blind duration for second wrong
+WRONG_GUESS_TIME_PENALTY_1 = 30  # Lose 30 seconds
+WRONG_GUESS_TIME_PENALTY_2 = 60  # Lose 60 seconds
+
+# Ghost effect visual settings
+GHOST_EFFECT_DURATION = 20.0  # Reduced from 30
+GHOST_EFFECT_FADE_START = 15.0  # Start fading at 15s
+GHOST_AFFECTED_COLOR = (200, 100, 100, 50)  # Subtler red highlight
 
 # Evidence categories
 EVIDENCE_COLD = "cold_evidence"
@@ -145,8 +172,18 @@ EQUIPMENT_CAMERA = "camera"
 
 # Flashlight battery
 FLASHLIGHT_BATTERY_MAX = 100
-FLASHLIGHT_DRAIN_RATE = 2.0  # Per second
+FLASHLIGHT_DRAIN_RATE = 3.5  # Increased from 2.0 - drains faster
 FLASHLIGHT_FLICKER_THRESHOLD = 20  # Battery level when flickering starts
+FLASHLIGHT_GHOST_DRAIN_MULTIPLIER = 2.5  # Increased from 2.0
+
+# EMF balance
+EMF_FALSE_POSITIVE_CHANCE = 0.15  # 15% chance of false spike
+
+# Thermometer balance
+TEMP_CHANGE_SPEED = 1.0  # Reduced from 2.0 (half as responsive)
+
+# Spirit box balance
+SPIRIT_BOX_RESPONSE_COOLDOWN = 5.0  # Must wait 5s between responses
 
 # EMF levels
 EMF_LEVEL_0 = 0  # No activity

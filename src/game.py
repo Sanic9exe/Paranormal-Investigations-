@@ -199,11 +199,11 @@ class Game:
         self.identify_menu = IdentifyMenu(screen_rect, self.all_ghosts, self.fonts['medium'])
         self.zoom_view = ZoomView(screen_rect)
         
-        # Set up game mechanics - shorter times for better gameplay
+        # Set up game mechanics - shorter times for better gameplay (balance change)
         self.guesses_remaining = settings['guesses']
         self.grace_period = random.randint(*settings['grace_period'])
-        # Cap time limit to 3-5 minutes for better pacing
-        base_time = min(300, self.haunting_ghost.time_limit // 3)
+        # Reduced base time calculation (balance change)
+        base_time = min(240, self.haunting_ghost.time_limit // 4)
         self.time_limit = base_time * settings['time_multiplier']
         self.aggression = self.haunting_ghost.base_aggression
         
@@ -231,8 +231,9 @@ class Game:
         self.used_flashlight = False
         self.wrong_guesses = 0
         
-        # Reset equipment
-        self.equipment = EquipmentManager()
+        # Reset equipment with difficulty-based slots (balance change)
+        equipment_slots = settings.get('equipment_slots', 2)
+        self.equipment = EquipmentManager(equipment_slots)
         
         # Reset particles and ambient
         self.particles.clear()
@@ -241,6 +242,8 @@ class Game:
         # Add welcome note
         self.notebook.add_note("Investigation started...")
         self.notebook.add_note(f"Location: {self.current_room.display_name}")
+        if equipment_slots == 1:
+            self.notebook.add_note("WARNING: Only 1 equipment slot available!")
         
         # Play start sound
         self.audio.play_ui_sound('open')
@@ -416,29 +419,42 @@ class Game:
                 
                 # Check if this reveals ghost-specific clues
                 if self.flashlight_on and self.ghost_arrived:
-                    self.check_for_evidence(obj)
+                    self.check_for_evidence(obj, 'examine')
                 
             elif obj.interaction_type == "zoom":
                 self.zoom_view.set_object(obj, self.haunting_ghost, self.flashlight_on)
                 self.state = STATE_ZOOM
                 self.notebook.add_note(f"Zoomed in on {obj.name}")
                 
-                # Check for evidence when zooming
+                # Check for evidence when zooming - higher chance (balance change)
                 if self.flashlight_on and self.ghost_arrived:
-                    self.check_for_evidence(obj)
+                    self.check_for_evidence(obj, 'zoom')
     
     def show_interaction_message(self, message):
         """Show a message to the player"""
         self.interaction_message = message
         self.interaction_message_timer = 3.0
         
-    def check_for_evidence(self, obj):
+    def check_for_evidence(self, obj, interaction_type='examine'):
         """Check if interacting with an object reveals evidence about the ghost"""
         if not self.haunting_ghost:
             return
         
+        # Tiered evidence chances based on interaction type (balance change)
+        base_chance = EVIDENCE_CHANCE_EXAMINE
+        if interaction_type == 'zoom':
+            base_chance = EVIDENCE_CHANCE_ZOOM
+        
+        # Higher chance if object was affected by ghost
+        if hasattr(obj, 'ghost_affected') and obj.ghost_affected:
+            base_chance = EVIDENCE_CHANCE_AFFECTED
+            
+        # Bonus chance if using relevant equipment
+        if self.equipment.emf_reader.active or self.equipment.thermometer.active:
+            base_chance += EVIDENCE_CHANCE_EQUIPMENT
+        
         # Randomly reveal evidence based on current ghost
-        if random.random() < 0.3:  # 30% chance to reveal evidence
+        if random.random() < base_chance:
             behavior = self.haunting_ghost.get_random_behavior()
             evidence_type = BEHAVIOR_EVIDENCE_MAP.get(behavior)
             if evidence_type and evidence_type not in self.collected_evidence:
@@ -614,11 +630,23 @@ class Game:
             self.audio.play_ui_sound('success')
             self.state = STATE_VICTORY
         else:
-            # Wrong guess
+            # Wrong guess - enhanced penalties (balance change)
             self.guesses_remaining -= 1
             self.wrong_guesses += 1
-            self.aggression += 0.2
-            self.blind_effect = 2.0  # 2 seconds of blind effect
+            
+            # Scaled penalties based on wrong guess count
+            if self.wrong_guesses == 1:
+                self.aggression += WRONG_GUESS_AGGRESSION_1
+                self.blind_effect = WRONG_GUESS_BLIND_1
+                time_penalty = WRONG_GUESS_TIME_PENALTY_1
+            else:
+                self.aggression += WRONG_GUESS_AGGRESSION_2
+                self.blind_effect = WRONG_GUESS_BLIND_2
+                time_penalty = WRONG_GUESS_TIME_PENALTY_2
+                
+            # Apply time penalty (balance change)
+            self.time_limit = max(30, self.time_limit - time_penalty)
+            
             self.wrong_guess_ghost = selected_ghost
             self.wrong_guess_timer = 3.0
             
@@ -640,7 +668,8 @@ class Game:
                 self.state = STATE_PLAYING
                 self.camera_shake = 0.5
                 self.ambient.trigger_shake(0.5)
-                self.show_interaction_message(f"Wrong! It wasn't {selected_ghost.name}!")
+                penalty_msg = f" (-{time_penalty}s)" if time_penalty > 0 else ""
+                self.show_interaction_message(f"Wrong! It wasn't {selected_ghost.name}!{penalty_msg}")
                 
     def update(self, dt):
         """Update game state"""
@@ -743,8 +772,9 @@ class Game:
         if ghost_nearby and random.random() < AMBIENT_WHISPER_CHANCE:
             self.audio.play_ambient('whisper')
             
-        # Ghost hint whispers
-        if ghost_nearby and random.random() < 0.005:  # Rare ghost hint
+        # Ghost hint whispers - balanced rate with aggression scaling (balance change)
+        hint_chance = GHOST_HINT_BASE_CHANCE * (1 + self.aggression * GHOST_HINT_AGGRESSION_MULTIPLIER)
+        if ghost_nearby and random.random() < hint_chance:
             if self.haunting_ghost.name in GHOST_HINTS:
                 hint = random.choice(GHOST_HINTS[self.haunting_ghost.name])
                 self.audio.play_ghost_sound('whisper', hint)
@@ -951,12 +981,12 @@ class Game:
         title = self.fonts['title'].render("Select Difficulty", True, WHITE)
         self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 100))
         
-        # Difficulty descriptions
+        # Difficulty descriptions with equipment slots (balance change)
         descriptions = {
-            0: "3 guesses, more time, slower aggression",
-            1: "2 guesses, standard time and aggression",
-            2: "1 guess, less time, faster aggression", 
-            3: "1 guess, minimal time, extreme aggression"
+            0: "3 guesses, more time, 2 equipment slots",
+            1: "2 guesses, standard time, 2 equipment slots",
+            2: "1 guess, less time, 1 equipment slot", 
+            3: "1 guess, minimal time, 1 equipment slot"
         }
         
         for i, btn in enumerate(self.difficulty_buttons[:-1]):
