@@ -7318,13 +7318,13 @@ LOCATION_STARTING_ROOMS = {
     "church": "entrance",
     "theater": "lobby",
     "factory": "factory_floor",
-    "ship": "main_deck",
+    "ship": "deck",
     "bunker": "entrance",
     "mine": "mine_entrance",
-    "train_station": "lobby",
+    "train_station": "platform",
     "mall": "main_entrance",
     "library": "entrance_hall",
-    "museum": "lobby",
+    "museum": "main_hall",
 }
 
 
