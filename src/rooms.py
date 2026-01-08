@@ -1994,6 +1994,6 @@ def create_all_rooms():
 
 def create_rooms_for_location(location_id):
     """Create rooms for a specific location"""
-    # For now, return haunted house rooms
-    # This can be expanded later with more location-specific rooms
-    return create_all_rooms()
+    # Import location-specific room generator
+    from location_rooms import create_rooms_for_location as create_location_rooms
+    return create_location_rooms(location_id)
