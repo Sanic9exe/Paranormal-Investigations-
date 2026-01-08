@@ -1260,6 +1260,10 @@ GHOST_ROSTER = [
 ]
 
 
+# Fallback ghost count for locations without valid ghosts
+DEFAULT_FALLBACK_GHOST_COUNT = 8
+
+
 def get_random_ghost():
     """Select a random ghost from the roster"""
     return random.choice(GHOST_ROSTER)
@@ -1285,7 +1289,7 @@ def get_ghosts_for_location(ghost_names):
         ghost = get_ghost_by_name(name)
         if ghost:
             ghosts.append(ghost)
-    return ghosts if ghosts else GHOST_ROSTER[:8]  # Fallback to first 8 ghosts
+    return ghosts if ghosts else GHOST_ROSTER[:DEFAULT_FALLBACK_GHOST_COUNT]
 
 
 def get_random_ghost_for_location(ghost_names):
