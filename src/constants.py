@@ -47,6 +47,7 @@ STATE_GAME_OVER = "game_over"
 STATE_VICTORY = "victory"
 STATE_ZOOM = "zoom"
 STATE_JUMPSCARE_GALLERY = "jumpscare_gallery"  # NEW: View jumpscares mode
+STATE_MAP_SELECT = "map_select"  # NEW: Map/location selection
 
 # Difficulty settings
 DIFFICULTY_EASY = "easy"
@@ -100,6 +101,11 @@ ROOM_BATHROOM = "bathroom"
 ROOM_STUDY = "study"
 ROOM_ATTIC = "attic"
 ROOM_BASEMENT = "basement"
+# Outdoor rooms for haunted house
+ROOM_BACKYARD = "backyard"
+ROOM_GARDEN = "garden"
+ROOM_PATIO = "patio"
+ROOM_TOOLSHED = "toolshed"
 
 # Navigation edge size
 EDGE_SIZE = 80
@@ -238,7 +244,50 @@ GHOST_HINTS = {
     "The Doll": ["...play with me...", "...don't leave me alone...", "...I'm a good girl..."],
     "The Hanged Man": ["...the rope... so tight...", "...they made me do it...", "...look up..."],
     "The Mimic": ["...I know your face...", "...who are you really?...", "...let me in..."],
-    "The Nurse": ["...time for your medicine...", "...this won't hurt...", "...visiting hours are over..."]
+    "The Nurse": ["...time for your medicine...", "...this won't hurt...", "...visiting hours are over..."],
+    # New ghost hints
+    "The Twins": ["...come play with us...", "...forever and ever...", "...we're not alone..."],
+    "The Drowned": ["...so cold...", "...can't breathe...", "...water everywhere..."],
+    "The Soldier": ["...incoming!...", "...they're everywhere...", "...never ends..."],
+    "The Witch": ["...cursed...", "...ancient words...", "...the ritual continues..."],
+    "The Plague Doctor": ["...I can cure you...", "...just a little pain...", "...the sickness spreads..."],
+    "The Jester": ["...isn't this funny?...", "...laugh with me...", "...the joke's on you..."],
+    "The Servant": ["...yes, master...", "...I'll never leave...", "...you rang?..."],
+    "The Artist": ["...my masterpiece...", "...you inspire me...", "...painted in red..."],
+    "The Musician": ["...listen to my song...", "...the final note...", "...music forever..."],
+    "The Chef": ["...dinner is served...", "...secret ingredient...", "...taste this..."],
+    "The Gardener": ["...planted here...", "...they grow so well...", "...fertilizer..."],
+    "The Arsonist": ["...burn it all...", "...so beautiful...", "...fire cleanses..."],
+    "The Drunkard": ["...one more drink...", "...the room spins...", "...never sober..."],
+    "The Gambler": ["...place your bets...", "...the house always wins...", "...snake eyes..."],
+    "The Thief": ["...what's yours is mine...", "...quiet now...", "...check your pockets..."],
+    "The Jailer": ["...no escape...", "...your cell is ready...", "...solitary..."],
+    "The Doctor": ["...open wide...", "...this will hurt...", "...for science..."],
+    "The Teacher": ["...pay attention...", "...you're failing...", "...detention..."],
+    "The Preacher": ["...repent!...", "...judgment comes...", "...sinners burn..."],
+    "The Detective": ["...I know what you did...", "...evidence...", "...you can't hide..."],
+    "The Gravedigger": ["...six feet deep...", "...dig dig dig...", "...room for one more..."],
+    "The Mariner": ["...the lighthouse...", "...rocks ahead...", "...no one survives..."],
+    "The Scarecrow": ["...watching the fields...", "...crows gather...", "...stay away..."],
+    "The Choir": ["...sing with us...", "...join the chorus...", "...hallelujah..."],
+    "The Worker": ["...the machines...", "...never stops...", "...productivity..."],
+    "The Foreman": ["...back to work...", "...no breaks...", "...deadlines..."],
+    "The Captain": ["...all hands...", "...ship's going down...", "...abandon hope..."],
+    "The Sailor": ["...port in a storm...", "...lost at sea...", "...never found land..."],
+    "The Stowaway": ["...don't tell...", "...hiding...", "...they'll find me..."],
+    "The General": ["...casualties acceptable...", "...for victory...", "...charge!..."],
+    "The Radio Operator": ["...mayday mayday...", "...do you copy?...", "...static..."],
+    "The Miner": ["...canary stopped singing...", "...cave-in...", "...no way out..."],
+    "The Canary": ["...warning...", "...danger ahead...", "...too late..."],
+    "The Conductor": ["...all aboard...", "...last stop...", "...no return ticket..."],
+    "The Waiting Woman": ["...he'll come...", "...any moment...", "...still waiting..."],
+    "The Hobo": ["...spare change?...", "...nowhere to go...", "...cold night..."],
+    "The Mannequin": ["...don't blink...", "...did I move?...", "...perfect pose..."],
+    "The Scholar": ["...forbidden knowledge...", "...the truth hurts...", "...I've seen beyond..."],
+    "The Archivist": ["...all recorded...", "...your file...", "...nothing forgotten..."],
+    "The Pharaoh": ["...my tomb...", "...cursed forever...", "...bow before me..."],
+    "The Mummy": ["...rest disturbed...", "...eternal sleep...", "...join me..."],
+    "The Curator": ["...don't touch...", "...priceless...", "...the collection grows..."],
 }
 
 # Minimap settings

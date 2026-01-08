@@ -335,6 +335,75 @@ class InteractiveObject:
         ("Window", "The Hanged Man"): "A silhouette hangs outside the window. It swings gently.",
         ("Window", "The Mimic"): "You see yourself standing outside, trying to get in.",
         ("Window", "The Nurse"): "The window shows a hospital room. It's yours. You're in the bed.",
+        
+        # Outdoor objects - Old Swing Set
+        ("Old Swing Set", "Little Timmy"): "The swing moves on its own. A child's laughter echoes.",
+        ("Old Swing Set", "The Twins"): "Both swings move in perfect synchronization. They're giggling.",
+        ("Old Swing Set", "The Doll"): "A porcelain doll sits on the swing. It wasn't there before.",
+        ("Old Swing Set", "Shadow Stalker"): "A dark figure sits on the swing. It has no face.",
+        ("Old Swing Set", "The Gardener"): "Vines are wrapping around the chains. Growing fast.",
+        ("Old Swing Set", "Nightmare"): "The swing holds a version of yourself as a child. Dead.",
+        
+        # Dead Tree
+        ("Dead Tree", "The Hanged Man"): "Multiple nooses hang from every branch. All swinging.",
+        ("Dead Tree", "The Gardener"): "The tree is blooming with black flowers. They smell of death.",
+        ("Dead Tree", "Shadow Stalker"): "The tree's shadow moves independently. It reaches for you.",
+        ("Dead Tree", "Little Timmy"): "Carved into the bark: 'TIMMY WAS HERE.' The carving is fresh.",
+        ("Dead Tree", "The Witch"): "Symbols are carved all over the trunk. The tree bleeds sap.",
+        ("Dead Tree", "Nightmare"): "Every branch holds a body. They all have your face.",
+        
+        # Garden Statue
+        ("Garden Statue", "Weeping Lady"): "The statue weeps real tears. An endless stream down stone cheeks.",
+        ("Garden Statue", "The Artist"): "The statue changes poses when you're not looking.",
+        ("Garden Statue", "The Collector"): "Objects have been placed as offerings at its feet.",
+        ("Garden Statue", "Nightmare"): "The statue has YOUR face. It's screaming silently.",
+        ("Garden Statue", "The Gardener"): "Moss and vines cover the statue like a shroud.",
+        ("Garden Statue", "Shadow Stalker"): "The statue casts a shadow even in complete darkness.",
+        
+        # Rose Bushes
+        ("Rose Bushes", "The Gardener"): "The roses are blood red and alive. Thorns reach for you.",
+        ("Rose Bushes", "Weeping Lady"): "White roses drip with tears. The petals fall like sobs.",
+        ("Rose Bushes", "The Butcher"): "The roses grow from buried bones. You can see them.",
+        ("Rose Bushes", "Ethereal Bride"): "A bridal bouquet lies among the thorns, perfectly preserved.",
+        ("Rose Bushes", "The Witch"): "The roses glow faintly with unholy light.",
+        
+        # Compost Pile
+        ("Compost Pile", "The Gardener"): "Something is growing in the compost. It has hands.",
+        ("Compost Pile", "The Butcher"): "Bones protrude from the pile. Human bones.",
+        ("Compost Pile", "Shadow Stalker"): "The pile moves on its own. Something lives inside.",
+        ("Compost Pile", "The Gravedigger"): "Freshly turned earth. Something was just buried here.",
+        
+        # Tool Rack
+        ("Tool Rack", "The Gardener"): "The tools are coated in fresh blood. They were just used.",
+        ("Tool Rack", "The Butcher"): "Meat hooks hang among the garden tools. Still dripping.",
+        ("Tool Rack", "Shadow Stalker"): "A tool is missing. You hear scraping sounds behind you.",
+        ("Tool Rack", "The Hanged Man"): "Rope coils among the tools. It ties itself into nooses.",
+        
+        # Patio Table
+        ("Patio Table", "The Servant"): "Tea has been served. It's still warm. Who poured it?",
+        ("Patio Table", "Ethereal Bride"): "A wedding reception layout. Champagne still bubbles.",
+        ("Patio Table", "Shadow Stalker"): "Something sits at the table. You can only see it from the corner of your eye.",
+        ("Patio Table", "The Collector"): "Strange items are arranged on the table. A collection of victims.",
+        
+        # Wind Chimes
+        ("Wind Chimes", "The Musician"): "The chimes play a melody. It's hauntingly beautiful.",
+        ("Wind Chimes", "The Twins"): "The chimes spell out letters. H-E-L-P.",
+        ("Wind Chimes", "Nightmare"): "The chimes make a sound like screaming.",
+        ("Wind Chimes", "Poltergeist"): "The chimes spin violently! The sound is deafening!",
+        
+        # Fertilizer Bags
+        ("Fertilizer Bags", "The Gardener"): "The bags are labeled 'SPECIAL FERTILIZER.' They smell wrong.",
+        ("Fertilizer Bags", "The Butcher"): "Some bags are leaking. It's not fertilizer.",
+        ("Fertilizer Bags", "Shadow Stalker"): "A bag moves on its own. Something is inside.",
+        ("Fertilizer Bags", "The Gravedigger"): "Lime bags are stacked here. Lots of them.",
+        
+        # Sliding Glass Door
+        ("Sliding Glass Door", "Shadow Stalker"): "A dark figure stands on the other side. It waves.",
+        ("Sliding Glass Door", "The Mimic"): "Your reflection doesn't match your movements.",
+        ("Sliding Glass Door", "Little Timmy"): "Child's handprints cover the glass. They appear as you watch.",
+        ("Sliding Glass Door", "The Gardener"): "Vines are trying to grow through the glass.",
+        ("Sliding Glass Door", "Nightmare"): "What's on the other side isn't your backyard.",
+        ("Sliding Glass Door", "Poltergeist"): "The door slides open and closed on its own.",
     }
     
     def __init__(self, name, rect, description, interaction_type, zoom_description=None, 
@@ -721,9 +790,9 @@ class LivingRoom(Room):
         super().__init__(
             name=ROOM_LIVING_ROOM,
             display_name="Living Room",
-            connections={"left": ROOM_ENTRANCE, "right": ROOM_KITCHEN, "up": ROOM_BEDROOM},
+            connections={"left": ROOM_ENTRANCE, "right": ROOM_KITCHEN, "up": ROOM_BEDROOM, "down": ROOM_BACKYARD},
             base_color=(85, 75, 70),
-            description="A once-cozy living room. A cold fireplace dominates one wall, surrounded by dusty furniture."
+            description="A once-cozy living room. A cold fireplace dominates one wall. A sliding glass door leads to the backyard."
         )
     
     def setup_room(self):
@@ -753,8 +822,15 @@ class LivingRoom(Room):
             "A dusty coffee table with old magazines.",
             "examine"
         ))
+        self.add_object(InteractiveObject(
+            "Sliding Glass Door",
+            (550, 480, 180, 120),
+            "A sliding glass door leading to the backyard. Handprints smear the glass.",
+            "examine",
+            "Through the dirty glass, you see the overgrown backyard. Something moves in the shadows."
+        ))
         # Hidden clues
-        self.add_hidden_clue(550, 450, "IT BURNS", "The Burned Man")
+        self.add_hidden_clue(550, 550, "IT BURNS", "The Burned Man")
         self.add_hidden_clue(920, 380, "WATCHING YOU", "The Mimic")
         self.add_hidden_clue(350, 520, "I SEE YOU", None)
     
@@ -1542,8 +1618,360 @@ class BasementRoom(Room):
         pygame.draw.circle(surface, light_color, (640, 90), 15)
 
 
+# ============== OUTDOOR ROOMS ==============
+
+class BackyardRoom(Room):
+    """The backyard area - accessed from living room via sliding glass door"""
+    
+    def __init__(self):
+        super().__init__(
+            name=ROOM_BACKYARD,
+            display_name="Backyard",
+            connections={"left": ROOM_LIVING_ROOM, "right": ROOM_GARDEN, "up": ROOM_PATIO, "down": ROOM_TOOLSHED},
+            base_color=(40, 60, 40),  # Dark grass color
+            description="A neglected backyard overgrown with weeds. The moon casts long shadows across the dead grass."
+        )
+    
+    def setup_room(self):
+        self.add_object(InteractiveObject(
+            "Sliding Glass Door",
+            (50, 200, 100, 250),
+            "A sliding glass door leading back inside. Handprints smear the glass.",
+            "examine"
+        ))
+        self.add_object(InteractiveObject(
+            "Old Swing Set",
+            (400, 280, 200, 200),
+            "A rusted swing set. One swing moves slowly on its own.",
+            "examine",
+            "The swing creaks rhythmically. You hear a child's laughter..."
+        ))
+        self.add_object(InteractiveObject(
+            "Dead Tree",
+            (800, 150, 150, 350),
+            "A massive dead oak tree. Something hangs from a high branch.",
+            "zoom",
+            "Looking closer, you see rope marks worn into the branch. A noose dangles in the moonlight."
+        ))
+        self.add_object(InteractiveObject(
+            "Abandoned Grill",
+            (1000, 350, 100, 120),
+            "An old charcoal grill. The smell of burned meat lingers.",
+            "examine"
+        ))
+        # Hidden clues
+        self.add_hidden_clue(500, 450, "BURIED HERE", "The Gardener")
+        self.add_hidden_clue(850, 500, "HELP US", "The Twins")
+    
+    def draw_base(self, surface):
+        # Night sky
+        pygame.draw.rect(surface, (10, 15, 30), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT * 0.3))
+        # Stars
+        star_positions = [(100, 50), (300, 80), (500, 40), (700, 90), (900, 60), (1100, 70)]
+        for x, y in star_positions:
+            pygame.draw.circle(surface, (200, 200, 220), (x, y), 2)
+        # Moon
+        pygame.draw.circle(surface, (220, 220, 200), (1100, 80), 40)
+        pygame.draw.circle(surface, (10, 15, 30), (1090, 70), 35)  # Crescent
+        # Grass/ground
+        pygame.draw.rect(surface, (30, 50, 30), (0, SCREEN_HEIGHT * 0.3, SCREEN_WIDTH, SCREEN_HEIGHT * 0.7))
+        # Grass texture
+        for i in range(0, SCREEN_WIDTH, 20):
+            height = 10 + (i % 30)
+            pygame.draw.line(surface, (40, 70, 40), (i, SCREEN_HEIGHT * 0.6), (i + 5, SCREEN_HEIGHT * 0.6 - height), 2)
+        # Fence in background
+        for i in range(0, SCREEN_WIDTH, 60):
+            pygame.draw.rect(surface, (60, 40, 30), (i, int(SCREEN_HEIGHT * 0.25), 10, 80))
+        pygame.draw.rect(surface, (50, 35, 25), (0, int(SCREEN_HEIGHT * 0.28), SCREEN_WIDTH, 8))
+    
+    def draw_details(self, surface):
+        # Sliding glass door (to house)
+        pygame.draw.rect(surface, (40, 40, 50), (50, 200, 100, 250))
+        pygame.draw.rect(surface, (60, 70, 90), (55, 205, 90, 240))
+        pygame.draw.line(surface, (80, 80, 90), (100, 205), (100, 445), 2)
+        # Light from inside
+        pygame.draw.rect(surface, (100, 90, 60), (55, 205, 90, 240))
+        
+        # Swing set
+        pygame.draw.rect(surface, (100, 60, 40), (450, 280, 10, 200))  # Left pole
+        pygame.draw.rect(surface, (100, 60, 40), (590, 280, 10, 200))  # Right pole
+        pygame.draw.rect(surface, (100, 60, 40), (440, 280, 170, 10))  # Top bar
+        # Swings
+        pygame.draw.line(surface, (80, 80, 80), (480, 290), (480, 380), 2)  # Chain
+        pygame.draw.line(surface, (80, 80, 80), (500, 290), (500, 380), 2)
+        pygame.draw.rect(surface, (60, 40, 30), (470, 380, 40, 10))  # Seat
+        # Moving swing
+        swing_offset = 20 if (self.effect_frame // 30) % 2 == 0 else -20
+        pygame.draw.line(surface, (80, 80, 80), (550 + swing_offset, 290), (550, 400), 2)
+        pygame.draw.line(surface, (80, 80, 80), (570 + swing_offset, 290), (570, 400), 2)
+        pygame.draw.rect(surface, (60, 40, 30), (540, 400, 40, 10))
+        
+        # Dead tree
+        pygame.draw.rect(surface, (60, 45, 35), (850, 150, 50, 350))  # Trunk
+        # Branches
+        pygame.draw.line(surface, (50, 40, 30), (875, 200), (750, 150), 8)
+        pygame.draw.line(surface, (50, 40, 30), (875, 180), (950, 100), 8)
+        pygame.draw.line(surface, (50, 40, 30), (875, 250), (1000, 200), 6)
+        # Noose
+        pygame.draw.line(surface, (120, 100, 80), (780, 150), (780, 220), 3)
+        pygame.draw.circle(surface, (120, 100, 80), (780, 240), 20, 3)
+        
+        # Grill
+        pygame.draw.ellipse(surface, (40, 40, 45), (1000, 350, 100, 60))
+        pygame.draw.rect(surface, (35, 35, 40), (1010, 400, 80, 50))
+        pygame.draw.rect(surface, (60, 50, 40), (1040, 450, 20, 30))
+
+
+class GardenRoom(Room):
+    """The overgrown garden - home of The Gardener ghost"""
+    
+    def __init__(self):
+        super().__init__(
+            name=ROOM_GARDEN,
+            display_name="Garden",
+            connections={"left": ROOM_BACKYARD},
+            base_color=(35, 55, 35),
+            description="An overgrown garden with dead plants and wilted flowers. Something moves among the thorns."
+        )
+    
+    def setup_room(self):
+        self.add_object(InteractiveObject(
+            "Rose Bushes",
+            (200, 300, 200, 150),
+            "Dead rose bushes with blackened thorns.",
+            "examine",
+            "Among the dead roses, you find a single fresh bloom. Blood red."
+        ))
+        self.add_object(InteractiveObject(
+            "Garden Statue",
+            (600, 250, 100, 200),
+            "A weathered angel statue. Its face has been worn away.",
+            "zoom",
+            "The statue's hands are positioned as if reaching for something. Or someone."
+        ))
+        self.add_object(InteractiveObject(
+            "Compost Pile",
+            (900, 350, 150, 100),
+            "A rotting compost pile. Something is buried underneath.",
+            "examine",
+            "Digging reveals old bones. Too large to be animal bones..."
+        ))
+        self.add_object(InteractiveObject(
+            "Garden Shed Key",
+            (1100, 400, 50, 50),
+            "A rusted key hanging from a hook.",
+            "examine"
+        ))
+        # Hidden clues
+        self.add_hidden_clue(400, 500, "THEY NEVER LEFT", "The Gardener")
+        self.add_hidden_clue(750, 350, "FERTILIZER", None)
+    
+    def draw_base(self, surface):
+        # Night sky
+        pygame.draw.rect(surface, (10, 15, 30), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT * 0.3))
+        # Ground
+        pygame.draw.rect(surface, (25, 45, 25), (0, SCREEN_HEIGHT * 0.3, SCREEN_WIDTH, SCREEN_HEIGHT * 0.7))
+        # Dirt patches
+        for x in range(100, SCREEN_WIDTH, 200):
+            pygame.draw.ellipse(surface, (60, 45, 35), (x, SCREEN_HEIGHT * 0.6, 120, 60))
+    
+    def draw_details(self, surface):
+        # Rose bushes
+        for i in range(5):
+            x = 200 + i * 40
+            pygame.draw.ellipse(surface, (30, 50, 30), (x, 300 + (i % 2) * 20, 50, 80))
+            # Thorns
+            pygame.draw.line(surface, (80, 60, 40), (x + 25, 320), (x + 40, 310), 2)
+        # One red rose
+        pygame.draw.circle(surface, (150, 30, 30), (300, 340), 8)
+        
+        # Angel statue
+        pygame.draw.rect(surface, (150, 150, 160), (640, 400, 40, 50))  # Base
+        pygame.draw.ellipse(surface, (160, 160, 170), (610, 280, 100, 150))  # Body
+        pygame.draw.circle(surface, (170, 170, 180), (660, 270), 30)  # Head
+        # Wings
+        pygame.draw.ellipse(surface, (180, 180, 190), (580, 300, 40, 80))
+        pygame.draw.ellipse(surface, (180, 180, 190), (700, 300, 40, 80))
+        # Worn face
+        pygame.draw.rect(surface, (140, 140, 150), (650, 260, 20, 20))
+        
+        # Compost pile
+        pygame.draw.ellipse(surface, (60, 50, 40), (900, 350, 150, 100))
+        pygame.draw.ellipse(surface, (50, 40, 30), (920, 360, 110, 70))
+        # Bones peeking out
+        pygame.draw.line(surface, (200, 195, 180), (950, 400), (970, 420), 3)
+
+
+class PatioRoom(Room):
+    """The patio area with outdoor furniture"""
+    
+    def __init__(self):
+        super().__init__(
+            name=ROOM_PATIO,
+            display_name="Patio",
+            connections={"down": ROOM_BACKYARD},
+            base_color=(80, 70, 65),
+            description="A stone patio with broken furniture. The wind chimes ring without wind."
+        )
+    
+    def setup_room(self):
+        self.add_object(InteractiveObject(
+            "Patio Table",
+            (400, 300, 250, 150),
+            "A wrought iron table with four chairs. One chair is always pulled out.",
+            "examine",
+            "Tea cups sit on the table, still warm. But no one is here..."
+        ))
+        self.add_object(InteractiveObject(
+            "Wind Chimes",
+            (800, 150, 80, 150),
+            "Wind chimes that ring in the still air.",
+            "examine"
+        ))
+        self.add_object(InteractiveObject(
+            "Potted Plants",
+            (100, 350, 150, 100),
+            "Dead potted plants in cracked pots.",
+            "examine"
+        ))
+        self.add_object(InteractiveObject(
+            "Outdoor Fireplace",
+            (1000, 200, 150, 250),
+            "A stone fireplace. Cold ashes remain.",
+            "examine"
+        ))
+    
+    def draw_base(self, surface):
+        # Night sky
+        pygame.draw.rect(surface, (10, 15, 30), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT * 0.25))
+        # Stone patio
+        for y in range(int(SCREEN_HEIGHT * 0.25), SCREEN_HEIGHT, 60):
+            for x in range(0, SCREEN_WIDTH, 80):
+                color = (75, 70, 65) if (x + y) % 160 == 0 else (85, 80, 75)
+                pygame.draw.rect(surface, color, (x, y, 78, 58))
+    
+    def draw_details(self, surface):
+        # Patio table
+        pygame.draw.ellipse(surface, (50, 50, 55), (400, 300, 250, 100))  # Table top
+        pygame.draw.rect(surface, (40, 40, 45), (510, 380, 30, 100))  # Table leg
+        # Chairs
+        chair_positions = [(350, 350), (600, 350), (420, 420), (530, 420)]
+        for i, (cx, cy) in enumerate(chair_positions):
+            pygame.draw.rect(surface, (50, 50, 55), (cx, cy, 40, 50))
+            # One chair pulled out
+            if i == 2:
+                pygame.draw.rect(surface, (50, 50, 55), (cx - 30, cy + 20, 40, 50))
+        # Tea cups
+        pygame.draw.ellipse(surface, (200, 200, 210), (450, 320, 30, 20))
+        pygame.draw.ellipse(surface, (200, 200, 210), (520, 330, 30, 20))
+        
+        # Wind chimes
+        pygame.draw.rect(surface, (100, 80, 60), (820, 100, 40, 10))
+        chime_offset = 5 if (self.effect_frame // 20) % 2 == 0 else -5
+        for i in range(5):
+            pygame.draw.line(surface, (180, 180, 190), (810 + i * 12 + chime_offset, 110), 
+                           (810 + i * 12, 110 + 30 + i * 10), 2)
+        
+        # Stone fireplace
+        pygame.draw.rect(surface, (100, 90, 85), (1000, 200, 150, 250))
+        pygame.draw.rect(surface, (40, 35, 30), (1020, 280, 110, 150))
+        pygame.draw.rect(surface, (110, 100, 95), (990, 180, 170, 25))
+
+
+class ToolshedRoom(Room):
+    """A creepy toolshed with rusty implements"""
+    
+    def __init__(self):
+        super().__init__(
+            name=ROOM_TOOLSHED,
+            display_name="Tool Shed",
+            connections={"up": ROOM_BACKYARD},
+            base_color=(60, 50, 45),
+            description="A cramped tool shed filled with rusty implements. Something scratches at the walls."
+        )
+    
+    def setup_room(self):
+        self.add_object(InteractiveObject(
+            "Tool Rack",
+            (100, 150, 200, 300),
+            "A rack of garden tools. The shovel has dried mud... and something else.",
+            "examine",
+            "The shovel's blade has scratch marks. Like someone was trying to dig out."
+        ))
+        self.add_object(InteractiveObject(
+            "Workbench",
+            (400, 300, 250, 100),
+            "A cluttered workbench covered in rust and old blood.",
+            "zoom",
+            "Among the tools, you find photographs of the previous owners. All scratched out."
+        ))
+        self.add_object(InteractiveObject(
+            "Fertilizer Bags",
+            (800, 350, 150, 120),
+            "Stacked bags of fertilizer. Some are strangely lumpy.",
+            "examine"
+        ))
+        self.add_object(InteractiveObject(
+            "Locked Cabinet",
+            (1050, 200, 100, 200),
+            "A padlocked metal cabinet. Something rattles inside.",
+            "examine"
+        ))
+        # Hidden clues
+        self.add_hidden_clue(300, 450, "DIG DEEPER", "The Gardener")
+        self.add_hidden_clue(600, 380, "BONES", "The Butcher")
+    
+    def draw_base(self, surface):
+        # Wooden walls
+        for x in range(0, SCREEN_WIDTH, 40):
+            color = (55, 45, 40) if x % 80 == 0 else (60, 50, 45)
+            pygame.draw.rect(surface, color, (x, 0, 38, SCREEN_HEIGHT))
+        # Floor
+        pygame.draw.rect(surface, (50, 40, 35), (0, SCREEN_HEIGHT * 0.6, SCREEN_WIDTH, SCREEN_HEIGHT * 0.4))
+    
+    def draw_details(self, surface):
+        # Tool rack
+        pygame.draw.rect(surface, (80, 60, 50), (100, 150, 200, 20))
+        pygame.draw.rect(surface, (80, 60, 50), (100, 250, 200, 20))
+        pygame.draw.rect(surface, (80, 60, 50), (100, 350, 200, 20))
+        # Tools
+        # Shovel
+        pygame.draw.rect(surface, (100, 80, 60), (120, 170, 10, 150))
+        pygame.draw.rect(surface, (120, 120, 130), (110, 320, 30, 40))
+        # Rake
+        pygame.draw.rect(surface, (100, 80, 60), (180, 170, 8, 120))
+        pygame.draw.rect(surface, (100, 100, 110), (160, 290, 50, 5))
+        # Hoe
+        pygame.draw.rect(surface, (100, 80, 60), (240, 180, 8, 100))
+        pygame.draw.rect(surface, (110, 110, 120), (230, 275, 30, 20))
+        
+        # Workbench
+        pygame.draw.rect(surface, (70, 55, 45), (400, 300, 250, 20))
+        pygame.draw.rect(surface, (60, 45, 35), (410, 320, 30, 100))
+        pygame.draw.rect(surface, (60, 45, 35), (610, 320, 30, 100))
+        # Blood stains
+        pygame.draw.ellipse(surface, (80, 30, 30), (500, 290, 60, 20))
+        
+        # Fertilizer bags
+        for i in range(3):
+            pygame.draw.rect(surface, (150, 130, 100), (800 + i * 20, 350 - i * 30, 80, 60))
+        
+        # Locked cabinet
+        pygame.draw.rect(surface, (80, 80, 90), (1050, 200, 100, 200))
+        pygame.draw.rect(surface, (70, 70, 80), (1055, 205, 90, 190))
+        pygame.draw.circle(surface, (150, 130, 50), (1100, 300), 10)  # Lock
+        
+        # Single hanging light
+        pygame.draw.line(surface, (60, 60, 60), (640, 0), (640, 100), 2)
+        if self.lights_on:
+            light_color = (180, 160, 80) if random.random() > 0.3 else (100, 90, 50)
+        else:
+            light_color = (80, 70, 40)
+        pygame.draw.circle(surface, light_color, (640, 110), 15)
+
+
 def create_all_rooms():
-    """Create and return a dictionary of all rooms"""
+    """Create and return a dictionary of all rooms for the haunted house"""
     rooms = {
         ROOM_ENTRANCE: EntranceRoom(),
         ROOM_LIVING_ROOM: LivingRoom(),
@@ -1555,5 +1983,17 @@ def create_all_rooms():
         ROOM_STUDY: StudyRoom(),
         ROOM_ATTIC: AtticRoom(),
         ROOM_BASEMENT: BasementRoom(),
+        # Outdoor rooms
+        ROOM_BACKYARD: BackyardRoom(),
+        ROOM_GARDEN: GardenRoom(),
+        ROOM_PATIO: PatioRoom(),
+        ROOM_TOOLSHED: ToolshedRoom(),
     }
     return rooms
+
+
+def create_rooms_for_location(location_id):
+    """Create rooms for a specific location"""
+    # For now, return haunted house rooms
+    # This can be expanded later with more location-specific rooms
+    return create_all_rooms()

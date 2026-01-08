@@ -6,13 +6,14 @@ import pygame
 import random
 import math
 from constants import *
-from ghosts import get_random_ghost, get_all_ghosts, Ghost, BEHAVIOR_EVIDENCE_MAP
-from rooms import create_all_rooms
+from ghosts import get_random_ghost, get_all_ghosts, get_ghosts_for_location, get_random_ghost_for_location, Ghost, BEHAVIOR_EVIDENCE_MAP
+from rooms import create_all_rooms, create_rooms_for_location
 from ui import Button, Notebook, GhostBook, IdentifyMenu, ZoomView
 from equipment import EquipmentManager
 from particles import ParticleSystem, AmbientEffects
 from audio import AudioManager, Soundtrack
 from achievements import AchievementManager
+from locations import LOCATIONS, get_location_info, get_all_locations, get_location_ghosts, LOCATION_HAUNTED_HOUSE
 
 
 class Game:
@@ -36,11 +37,16 @@ class Game:
         self.previous_state = None
         self.difficulty = DIFFICULTY_NORMAL
         
+        # Location selection
+        self.selected_location = LOCATION_HAUNTED_HOUSE
+        self.location_scroll = 0
+        
         # Game objects
         self.rooms = None
         self.current_room = None
         self.haunting_ghost = None
         self.all_ghosts = get_all_ghosts()
+        self.location_ghosts = []  # Ghosts for current location
         
         # UI elements
         self.notebook = None
@@ -116,7 +122,7 @@ class Game:
         # Main menu buttons
         self.menu_buttons = [
             Button((center_x - 100, 280, 200, 50), "Start Game", self.fonts['medium'],
-                  lambda: self.set_state(STATE_DIFFICULTY)),
+                  lambda: self.set_state(STATE_MAP_SELECT)),  # Go to map selection first
             Button((center_x - 100, 340, 200, 50), "Settings", self.fonts['medium'],
                   lambda: self.set_state(STATE_SETTINGS)),
             Button((center_x - 100, 400, 200, 50), "Jumpscares", self.fonts['medium'],
@@ -142,7 +148,7 @@ class Game:
         self.gallery_selected_ghost = None
         self.gallery_jumpscare_timer = 0
         
-        # Difficulty buttons
+        # Difficulty buttons - now called after map selection
         self.difficulty_buttons = [
             Button((center_x - 100, 250, 200, 50), "Easy", self.fonts['medium'],
                   lambda: self.start_game(DIFFICULTY_EASY)),
@@ -153,7 +159,7 @@ class Game:
             Button((center_x - 100, 460, 200, 50), "Nightmare", self.fonts['medium'],
                   lambda: self.start_game(DIFFICULTY_NIGHTMARE)),
             Button((center_x - 100, 550, 200, 50), "Back", self.fonts['medium'],
-                  lambda: self.set_state(STATE_MENU)),
+                  lambda: self.set_state(STATE_MAP_SELECT)),  # Go back to map select
         ]
         
         # Pause menu buttons
@@ -186,26 +192,34 @@ class Game:
         self.difficulty = difficulty
         settings = DIFFICULTY_SETTINGS[difficulty]
         
-        # Reset game state
-        self.rooms = create_all_rooms()
+        # Get location info
+        location_info = get_location_info(self.selected_location)
+        ghost_names = get_location_ghosts(self.selected_location)
+        
+        # Reset game state - use location-specific rooms
+        self.rooms = create_rooms_for_location(self.selected_location)
         self.current_room = self.rooms[ROOM_ENTRANCE]
-        self.haunting_ghost = get_random_ghost()
+        
+        # Get ghosts for this location and select one
+        self.location_ghosts = get_ghosts_for_location(ghost_names)
+        self.haunting_ghost = get_random_ghost_for_location(ghost_names)
         self.haunting_ghost.reset()
         
-        # Initialize UI
+        # Initialize UI with location-specific ghosts
         screen_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
         self.notebook = Notebook(screen_rect)
-        self.ghost_book = GhostBook(screen_rect, self.all_ghosts)
-        self.identify_menu = IdentifyMenu(screen_rect, self.all_ghosts, self.fonts['medium'])
+        self.ghost_book = GhostBook(screen_rect, self.location_ghosts)  # Show only location ghosts
+        self.identify_menu = IdentifyMenu(screen_rect, self.location_ghosts, self.fonts['medium'])
         self.zoom_view = ZoomView(screen_rect)
         
         # Set up game mechanics - shorter times for better gameplay (balance change)
         self.guesses_remaining = settings['guesses']
         self.grace_period = random.randint(*settings['grace_period'])
-        # Reduced base time calculation (balance change)
+        # Reduced base time calculation (balance change) + location difficulty bonus
+        location_difficulty = location_info.get('difficulty_bonus', 0)
         base_time = min(240, self.haunting_ghost.time_limit // 4)
-        self.time_limit = base_time * settings['time_multiplier']
-        self.aggression = self.haunting_ghost.base_aggression
+        self.time_limit = base_time * settings['time_multiplier'] * (1 - location_difficulty)
+        self.aggression = self.haunting_ghost.base_aggression + location_difficulty * 0.1
         
         # Use pygame ticks
         self.game_start_ticks = pygame.time.get_ticks()
@@ -239,9 +253,10 @@ class Game:
         self.particles.clear()
         self.ambient = AmbientEffects()
         
-        # Add welcome note
+        # Add welcome note with location info
         self.notebook.add_note("Investigation started...")
-        self.notebook.add_note(f"Location: {self.current_room.display_name}")
+        self.notebook.add_note(f"Location: {location_info['name']}")
+        self.notebook.add_note(f"Room: {self.current_room.display_name}")
         if equipment_slots == 1:
             self.notebook.add_note("WARNING: Only 1 equipment slot available!")
         
@@ -319,6 +334,10 @@ class Game:
             for btn in self.settings_buttons:
                 if btn.handle_click(pos):
                     return
+        
+        elif self.state == STATE_MAP_SELECT:
+            self.handle_map_select_click(pos)
+            return
                     
         elif self.state == STATE_DIFFICULTY:
             for btn in self.difficulty_buttons:
@@ -476,6 +495,45 @@ class Game:
             total_rows = (len(self.all_ghosts) + cards_per_row - 1) // cards_per_row
             max_scroll = max(0, (total_rows * (card_height + 20)) - (SCREEN_HEIGHT - 150))
             self.gallery_scroll = max(0, min(max_scroll, self.gallery_scroll + amount))
+        elif self.state == STATE_MAP_SELECT:
+            # Map selection scroll
+            all_locations = get_all_locations()
+            card_height = 120
+            total_height = len(all_locations) * (card_height + 10)
+            max_scroll = max(0, total_height - (SCREEN_HEIGHT - 200))
+            self.location_scroll = max(0, min(max_scroll, self.location_scroll + amount))
+    
+    def handle_map_select_click(self, pos):
+        """Handle click in map selection screen"""
+        # Back button area (top left)
+        if pos[0] < 100 and pos[1] < 50:
+            self.set_state(STATE_MENU)
+            return
+        
+        # Next button (bottom right) - only if a location is selected
+        if pos[0] > SCREEN_WIDTH - 200 and pos[1] > SCREEN_HEIGHT - 80:
+            self.set_state(STATE_DIFFICULTY)
+            return
+        
+        # Check location cards
+        all_locations = get_all_locations()
+        card_height = 120
+        card_width = 500
+        start_x = 50
+        start_y = 100 - self.location_scroll
+        
+        for i, location_id in enumerate(all_locations):
+            y = start_y + i * (card_height + 10)
+            
+            # Skip if off screen
+            if y + card_height < 50 or y > SCREEN_HEIGHT:
+                continue
+                
+            card_rect = pygame.Rect(start_x, y, card_width, card_height)
+            if card_rect.collidepoint(pos):
+                self.selected_location = location_id
+                self.audio.play_ui_sound('click')
+                return
     
     def handle_gallery_click(self, pos):
         """Handle click in jumpscare gallery"""
@@ -527,11 +585,13 @@ class Game:
                     self.gallery_selected_ghost = None
                 else:
                     self.state = STATE_MENU
+            elif self.state == STATE_MAP_SELECT:
+                self.state = STATE_MENU
             elif self.state in [STATE_PAUSED, STATE_NOTEBOOK, STATE_GHOST_BOOK, 
                                STATE_IDENTIFY, STATE_ZOOM, STATE_EQUIPMENT]:
                 self.state = STATE_PLAYING
             elif self.state in [STATE_SETTINGS, STATE_CREDITS, STATE_DIFFICULTY]:
-                self.state = STATE_MENU
+                self.state = STATE_MAP_SELECT  # Go back to map select instead of menu
                 
         if self.state == STATE_PLAYING:
             if key == pygame.K_f:
@@ -878,6 +938,8 @@ class Game:
             self.draw_settings()
         elif self.state == STATE_CREDITS:
             self.draw_credits()
+        elif self.state == STATE_MAP_SELECT:
+            self.draw_map_select()
         elif self.state == STATE_DIFFICULTY:
             self.draw_difficulty()
         elif self.state == STATE_TUTORIAL:
@@ -950,6 +1012,158 @@ class Game:
         
         for btn in self.settings_buttons:
             btn.draw(self.screen)
+    
+    def draw_map_select(self):
+        """Draw map/location selection screen"""
+        self.screen.fill(MENU_BG)
+        
+        # Title
+        title = self.fonts['title'].render("Select Location", True, WHITE)
+        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 20))
+        
+        # Back button
+        back_text = self.fonts['medium'].render("< Back", True, WHITE)
+        self.screen.blit(back_text, (20, 20))
+        
+        # Location list
+        all_locations = get_all_locations()
+        card_height = 120
+        card_width = 500
+        start_x = 50
+        start_y = 100 - self.location_scroll
+        
+        # Create clipping rect for scrollable area
+        clip_rect = pygame.Rect(0, 80, SCREEN_WIDTH, SCREEN_HEIGHT - 160)
+        
+        for i, location_id in enumerate(all_locations):
+            y = start_y + i * (card_height + 10)
+            
+            # Skip if off screen
+            if y + card_height < 80 or y > SCREEN_HEIGHT - 80:
+                continue
+            
+            location_info = get_location_info(location_id)
+            is_selected = location_id == self.selected_location
+            
+            # Card background
+            if is_selected:
+                card_color = (80, 60, 60)
+                border_color = (200, 100, 100)
+            else:
+                card_color = (40, 40, 50)
+                border_color = tuple(c // 2 for c in location_info.get('color', (100, 100, 100)))
+            
+            pygame.draw.rect(self.screen, card_color, (start_x, y, card_width, card_height), border_radius=8)
+            pygame.draw.rect(self.screen, border_color, (start_x, y, card_width, card_height), 3, border_radius=8)
+            
+            # Location color preview
+            loc_color = location_info.get('color', (100, 100, 100))
+            pygame.draw.rect(self.screen, loc_color, (start_x + 10, y + 10, 80, 80), border_radius=5)
+            
+            # Location name
+            name = self.fonts['large'].render(location_info['name'], True, WHITE)
+            self.screen.blit(name, (start_x + 110, y + 10))
+            
+            # Description (truncated)
+            desc = location_info.get('description', '')
+            if len(desc) > 60:
+                desc = desc[:57] + "..."
+            desc_text = self.fonts['small'].render(desc, True, GRAY)
+            self.screen.blit(desc_text, (start_x + 110, y + 45))
+            
+            # Ghost count
+            ghost_names = location_info.get('ghosts', [])
+            ghost_count = self.fonts['small'].render(f"Ghosts: {len(ghost_names)}", True, (150, 150, 180))
+            self.screen.blit(ghost_count, (start_x + 110, y + 70))
+            
+            # Difficulty indicator
+            difficulty_bonus = location_info.get('difficulty_bonus', 0)
+            if difficulty_bonus > 0.15:
+                diff_text = "Hard"
+                diff_color = RED
+            elif difficulty_bonus > 0:
+                diff_text = "Medium"
+                diff_color = ORANGE
+            else:
+                diff_text = "Normal"
+                diff_color = GREEN
+            diff_label = self.fonts['small'].render(diff_text, True, diff_color)
+            self.screen.blit(diff_label, (start_x + 400, y + 70))
+            
+            # Outdoor indicator
+            if location_info.get('has_outdoor', False):
+                outdoor_text = self.fonts['small'].render("Outdoor Areas", True, (100, 180, 100))
+                self.screen.blit(outdoor_text, (start_x + 300, y + 70))
+        
+        # Selected location preview panel
+        if self.selected_location:
+            location_info = get_location_info(self.selected_location)
+            preview_x = 600
+            preview_y = 100
+            preview_width = 350
+            preview_height = 400
+            
+            pygame.draw.rect(self.screen, (30, 30, 40), (preview_x, preview_y, preview_width, preview_height), border_radius=10)
+            pygame.draw.rect(self.screen, (60, 60, 80), (preview_x, preview_y, preview_width, preview_height), 2, border_radius=10)
+            
+            # Location name
+            loc_name = self.fonts['large'].render(location_info['name'], True, WHITE)
+            self.screen.blit(loc_name, (preview_x + 20, preview_y + 15))
+            
+            # Full description
+            desc_lines = self._wrap_text(location_info.get('description', ''), 40)
+            y_offset = 55
+            for line in desc_lines:
+                desc_text = self.fonts['small'].render(line, True, LIGHT_GRAY)
+                self.screen.blit(desc_text, (preview_x + 20, preview_y + y_offset))
+                y_offset += 18
+            
+            # Ghosts section
+            y_offset += 20
+            ghosts_title = self.fonts['medium'].render("Available Ghosts:", True, YELLOW)
+            self.screen.blit(ghosts_title, (preview_x + 20, preview_y + y_offset))
+            y_offset += 28
+            
+            ghost_names = location_info.get('ghosts', [])
+            # Show up to 8 ghost names
+            displayed_ghosts = ghost_names[:8]
+            for ghost_name in displayed_ghosts:
+                ghost_text = self.fonts['small'].render(f"• {ghost_name}", True, (180, 180, 200))
+                self.screen.blit(ghost_text, (preview_x + 30, preview_y + y_offset))
+                y_offset += 18
+            
+            if len(ghost_names) > 8:
+                more_text = self.fonts['small'].render(f"  ...and {len(ghost_names) - 8} more", True, GRAY)
+                self.screen.blit(more_text, (preview_x + 30, preview_y + y_offset))
+        
+        # Next button
+        next_rect = pygame.Rect(SCREEN_WIDTH - 180, SCREEN_HEIGHT - 70, 150, 50)
+        pygame.draw.rect(self.screen, (60, 80, 60), next_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (100, 150, 100), next_rect, 2, border_radius=8)
+        next_text = self.fonts['medium'].render("Next >", True, WHITE)
+        self.screen.blit(next_text, (next_rect.centerx - next_text.get_width() // 2, 
+                                     next_rect.centery - next_text.get_height() // 2))
+        
+        # Scroll hint
+        if len(all_locations) > 4:
+            scroll_hint = self.fonts['small'].render("Scroll to see more locations", True, GRAY)
+            self.screen.blit(scroll_hint, (50, SCREEN_HEIGHT - 30))
+    
+    def _wrap_text(self, text, max_chars):
+        """Helper to wrap text into lines"""
+        words = text.split()
+        lines = []
+        current_line = ""
+        for word in words:
+            if len(current_line) + len(word) + 1 <= max_chars:
+                current_line += (" " if current_line else "") + word
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        if current_line:
+            lines.append(current_line)
+        return lines
             
     def draw_credits(self):
         """Draw credits screen"""
@@ -979,7 +1193,16 @@ class Game:
         self.screen.fill(MENU_BG)
         
         title = self.fonts['title'].render("Select Difficulty", True, WHITE)
-        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 100))
+        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 80))
+        
+        # Show selected location
+        location_info = get_location_info(self.selected_location)
+        loc_text = self.fonts['medium'].render(f"Location: {location_info['name']}", True, YELLOW)
+        self.screen.blit(loc_text, (SCREEN_WIDTH // 2 - loc_text.get_width() // 2, 140))
+        
+        ghost_names = location_info.get('ghosts', [])
+        ghost_text = self.fonts['small'].render(f"{len(ghost_names)} ghosts available", True, GRAY)
+        self.screen.blit(ghost_text, (SCREEN_WIDTH // 2 - ghost_text.get_width() // 2, 170))
         
         # Difficulty descriptions with equipment slots (balance change)
         descriptions = {
@@ -1272,7 +1495,7 @@ class Game:
         map_surf = pygame.Surface((MINIMAP_SIZE, MINIMAP_SIZE), pygame.SRCALPHA)
         map_surf.fill((20, 20, 30, MINIMAP_ALPHA))
         
-        # Room positions on minimap (simplified layout)
+        # Room positions on minimap (simplified layout) - includes outdoor rooms
         room_positions = {
             ROOM_ENTRANCE: (75, 130),
             ROOM_LIVING_ROOM: (30, 100),
@@ -1283,7 +1506,12 @@ class Game:
             ROOM_BATHROOM: (75, 55),
             ROOM_STUDY: (120, 55),
             ROOM_ATTIC: (75, 20),
-            ROOM_BASEMENT: (75, 130),  # Below entrance
+            ROOM_BASEMENT: (75, 145),  # Below entrance
+            # Outdoor rooms
+            ROOM_BACKYARD: (30, 130),  # Below living room
+            ROOM_GARDEN: (15, 110),  # Left of backyard
+            ROOM_PATIO: (30, 70),  # Above backyard
+            ROOM_TOOLSHED: (45, 145),  # Below backyard
         }
         
         # Draw connections
@@ -1298,13 +1526,18 @@ class Game:
         
         # Draw rooms
         for room_name, pos in room_positions.items():
+            if room_name not in self.rooms:
+                continue
             if room_name == self.current_room.name:
                 # Current room - highlighted
                 pygame.draw.circle(map_surf, YELLOW, pos, 8)
                 pygame.draw.circle(map_surf, WHITE, pos, 8, 1)
             elif room_name in self.rooms_visited:
-                # Visited room
-                pygame.draw.circle(map_surf, (80, 100, 80), pos, 6)
+                # Visited room - green for outdoor, blue for indoor
+                if room_name in [ROOM_BACKYARD, ROOM_GARDEN, ROOM_PATIO, ROOM_TOOLSHED]:
+                    pygame.draw.circle(map_surf, (80, 120, 80), pos, 6)  # Green for outdoor
+                else:
+                    pygame.draw.circle(map_surf, (80, 100, 120), pos, 6)  # Blue for indoor
             else:
                 # Unvisited room
                 pygame.draw.circle(map_surf, DARK_GRAY, pos, 5)
