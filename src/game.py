@@ -14,6 +14,7 @@ from particles import ParticleSystem, AmbientEffects
 from audio import AudioManager, Soundtrack
 from achievements import AchievementManager
 from locations import LOCATIONS, get_location_info, get_all_locations, get_location_ghosts, LOCATION_HAUNTED_HOUSE
+from location_rooms import get_starting_room_for_location
 
 
 class Game:
@@ -198,7 +199,9 @@ class Game:
         
         # Reset game state - use location-specific rooms
         self.rooms = create_rooms_for_location(self.selected_location)
-        self.current_room = self.rooms[ROOM_ENTRANCE]
+        # Get the correct starting room for this location
+        starting_room_key = get_starting_room_for_location(self.selected_location, self.rooms)
+        self.current_room = self.rooms[starting_room_key]
         
         # Get ghosts for this location and select one
         self.location_ghosts = get_ghosts_for_location(ghost_names)
@@ -240,7 +243,7 @@ class Game:
         self.interaction_message_timer = 0
         
         # NEW: Reset new systems
-        self.rooms_visited = {ROOM_ENTRANCE}
+        self.rooms_visited = {starting_room_key}
         self.equipment_used = set()
         self.used_flashlight = False
         self.wrong_guesses = 0

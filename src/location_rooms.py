@@ -7301,3 +7301,48 @@ def create_rooms_for_location(location_id):
     ghosts = location_data.get('ghosts', [])
     
     return generate_location_rooms(location_id, room_names, theme_color, ghosts)
+
+
+# Starting room mappings for each location
+LOCATION_STARTING_ROOMS = {
+    "haunted_house": "entrance",
+    "hospital": "reception",
+    "prison": "entrance_checkpoint",
+    "school": "entrance_hall",
+    "cemetery": "entrance_gates",
+    "asylum": "entrance",
+    "hotel": "lobby",
+    "lighthouse": "entrance",
+    "mansion": "foyer",
+    "farmhouse": "kitchen",
+    "church": "entrance",
+    "theater": "lobby",
+    "factory": "factory_floor",
+    "ship": "main_deck",
+    "bunker": "entrance",
+    "mine": "mine_entrance",
+    "train_station": "lobby",
+    "mall": "main_entrance",
+    "library": "entrance_hall",
+    "museum": "lobby",
+}
+
+
+def get_starting_room_for_location(location_id, rooms):
+    """
+    Get the starting room key for a given location.
+    Returns the first room key if the location is not found in mappings.
+    """
+    # First check the mapping
+    if location_id in LOCATION_STARTING_ROOMS:
+        starting_key = LOCATION_STARTING_ROOMS[location_id]
+        if starting_key in rooms:
+            return starting_key
+    
+    # Fallback: return the first key in the rooms dictionary
+    if rooms:
+        first_key = next(iter(rooms))
+        return first_key
+    
+    # Ultimate fallback
+    return "entrance"
